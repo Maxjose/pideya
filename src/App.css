@@ -5618,10 +5618,10 @@
   align-content: center;
   box-sizing: border-box;
   justify-items: start;
-  min-height: 74px;
+  min-height: 58px;
   min-width: 0;
   overflow: hidden;
-  padding: 10px 11px;
+  padding: 9px 10px;
   width: 100%;
 }
 
@@ -5643,8 +5643,8 @@
   .delivery-menu-summary span {
     border-radius: 14px;
     font-size: 0.72rem;
-    min-height: 68px;
-    padding: 9px;
+    min-height: 56px;
+    padding: 8px 9px;
   }
 
   .delivery-menu-summary strong {
