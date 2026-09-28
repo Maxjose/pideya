@@ -1175,7 +1175,7 @@
 .reference-hero {
   background:
     linear-gradient(90deg, rgba(2, 31, 114, 0.34) 0%, rgba(18, 104, 243, 0.1) 48%, rgba(18, 104, 243, 0) 100%),
-    url('./assets/fondo-portada-horizontal.png') right center / cover no-repeat;
+    url('https://raw.githubusercontent.com/jdqd1/pideya/main/src/assets/fondo-portada-horizontal.png') right center / cover no-repeat;
   border-radius: 0 0 34px 34px;
   color: #ffffff;
   min-height: 300px;
