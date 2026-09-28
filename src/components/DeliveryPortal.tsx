@@ -15,6 +15,7 @@ import {
   Star,
   Truck,
   UserRound,
+  WalletCards,
 } from 'lucide-react';
 import pideyaLogo from '../assets/pideya-logo.png';
 import { ActionButton, EmptyState, MetricCard, Panel, SafeImage, StatusPill } from './Shared';
