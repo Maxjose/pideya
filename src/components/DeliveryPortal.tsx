@@ -418,7 +418,7 @@ export function DeliveryPortal({
         <div className="account-sheet-backdrop" role="presentation" onClick={() => setDeliveryMenuOpen(false)}>
           <section
             aria-labelledby="delivery-menu-title"
-            className="account-sheet store-menu-sheet"
+            className="account-sheet store-menu-sheet delivery-menu-sheet"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
           >
@@ -434,7 +434,7 @@ export function DeliveryPortal({
               </div>
             </div>
 
-            <div className="account-summary-grid">
+            <div className="account-summary-grid delivery-menu-summary">
               <span>
                 <strong>{activeJobs.length}</strong>
                 Rutas
