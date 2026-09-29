@@ -5603,6 +5603,10 @@
   overflow-y: auto;
 }
 
+.delivery-menu-sheet {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
 .store-menu-profile {
   grid-template-columns: 44px 74px minmax(0, 1fr);
 }
