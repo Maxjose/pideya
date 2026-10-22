@@ -8404,3 +8404,44 @@
     width: 34px;
   }
 }
+
+/* Delivery: rediseño */
+.dlv-service { border-left: 4px solid var(--green); padding-left: 12px; }
+.dlv-service.is-off { border-left-color: var(--coral); }
+.dlv-service h2 { margin-top: 0; }
+.dlv-link {
+  align-items: center; background: none; border: 0; color: var(--blue);
+  cursor: pointer; display: inline-flex; font-weight: 850; gap: 2px; padding: 4px 0;
+}
+.dlv-notice {
+  align-items: center; background: var(--amber-soft); border-radius: 8px; color: var(--amber);
+  display: flex; font-size: 0.86rem; font-weight: 800; gap: 8px; margin-bottom: 12px; padding: 10px 12px;
+}
+.delivery-card .delivery-card-main { grid-template-columns: 56px minmax(0, 1fr) auto; }
+.delivery-card .delivery-card-main img { height: 56px; width: 56px; }
+.dlv-reward { display: grid; justify-items: end; }
+.dlv-reward strong { color: var(--green) !important; font-size: 1.12rem; }
+.dlv-route {
+  border-left: 2px dashed var(--line); display: grid; gap: 8px; margin-left: 7px; padding-left: 12px;
+}
+.dlv-route span {
+  align-items: flex-start; color: var(--ink); display: flex; flex-wrap: wrap; font-size: 0.88rem; gap: 6px;
+}
+.dlv-route svg { color: var(--blue); flex-shrink: 0; margin-top: 2px; }
+.dlv-route small {
+  color: var(--muted); font-size: 0.72rem; font-weight: 900; text-transform: uppercase; width: 56px;
+}
+.dlv-wide { justify-content: center; width: 100%; }
+.dlv-wide:disabled { cursor: not-allowed; opacity: 0.5; }
+.dlv-steps { display: grid; gap: 6px; grid-template-columns: repeat(3, 1fr); list-style: none; margin: 0; padding: 0; }
+.dlv-steps li {
+  color: var(--muted); display: grid; font-size: 0.75rem; font-weight: 850; gap: 6px; text-align: center;
+}
+.dlv-steps li span { background: var(--line); border-radius: 999px; height: 6px; }
+.dlv-steps li.done span { background: var(--green); }
+.dlv-steps li.current { color: var(--blue); }
+.dlv-steps li.current span { background: var(--blue); }
+.dlv-queue h3, .dlv-subtitle { font-size: 0.95rem; margin: 16px 0 10px; }
+.dlv-amount { color: var(--green) !important; }
+.dlv-switch { margin-top: 4px; }
+.store-payment-summary strong svg { color: var(--amber); vertical-align: -2px; }

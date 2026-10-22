@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
-  History,
   LogOut,
   MapPin,
   Menu as MenuIcon,
@@ -31,7 +30,7 @@ interface DeliveryPortalProps {
   onLogout: () => void;
 }
 
-type DeliveryView = 'dashboard' | 'available' | 'routes' | 'earnings' | 'profile' | 'history';
+type DeliveryView = 'dashboard' | 'available' | 'routes' | 'earnings' | 'profile';
 type DeliveryServiceStatus = 'available' | 'offline';
 
 const deliveryMainViews: DeliveryView[] = ['dashboard', 'available', 'routes'];
@@ -123,6 +122,102 @@ export function DeliveryPortal({
     setServiceConfirmAction(null);
   };
 
+  const routeSteps: { status: OrderStatus; label: string }[] = [
+    { status: 'assigned', label: 'Retiro' },
+    { status: 'picked_up', label: 'En camino' },
+    { status: 'in_transit', label: 'Entrega' },
+  ];
+  const nextAction: Partial<Record<OrderStatus, { to: OrderStatus; label: string; icon: typeof Truck }>> = {
+    assigned: { to: 'picked_up', label: 'Confirmar retiro', icon: PackageCheck },
+    picked_up: { to: 'in_transit', label: 'Iniciar entrega', icon: Truck },
+    in_transit: { to: 'delivered', label: 'Marcar entregado', icon: CheckCircle2 },
+  };
+
+  const renderActiveOrder = (order: Order) => {
+    const store = stores.find((item) => item.id === order.storeId);
+    const stepIndex = routeSteps.findIndex((step) => step.status === order.status);
+    const action = nextAction[order.status];
+
+    return (
+      <article className="order-card dlv-active">
+        <div className="order-card-header">
+          <div>
+            <strong>{order.id}</strong>
+            <span>{store?.name}</span>
+          </div>
+          <StatusPill status={order.status} />
+        </div>
+        <ol className="dlv-steps" aria-label="Progreso del pedido">
+          {routeSteps.map((step, index) => (
+            <li className={index < stepIndex ? 'done' : index === stepIndex ? 'current' : ''} key={step.status}>
+              <span />
+              {step.label}
+            </li>
+          ))}
+        </ol>
+        <div className="dlv-route">
+          <span>
+            <MapPin size={15} aria-hidden="true" /> <small>Retiro</small> {store?.address}
+          </span>
+          <span>
+            <Navigation size={15} aria-hidden="true" /> <small>Entrega</small> {order.address}
+          </span>
+        </div>
+        <div className="delivery-card-footer">
+          <span>{order.distanceKm} km</span>
+          <strong>{formatCurrency(order.courierReward)}</strong>
+        </div>
+        {action ? (
+          <ActionButton
+            className="dlv-wide"
+            icon={action.icon}
+            onClick={() => onOrderStatusChange(order.id, action.to)}
+            variant={action.to === 'delivered' ? 'success' : 'primary'}
+          >
+            {action.label}
+          </ActionButton>
+        ) : null}
+      </article>
+    );
+  };
+
+  const renderOffer = (order: Order) => {
+    const store = stores.find((item) => item.id === order.storeId);
+
+    return (
+      <article className="delivery-card" key={order.id}>
+        <div className="delivery-card-main">
+          <SafeImage src={store?.imageUrl} alt="" />
+          <div>
+            <strong>{store?.name}</strong>
+            <small>{order.id} | {formatTime(order.createdAt)} | {order.items.length} items</small>
+          </div>
+          <div className="dlv-reward">
+            <strong>{formatCurrency(order.courierReward)}</strong>
+            <small>{order.distanceKm} km</small>
+          </div>
+        </div>
+        <div className="dlv-route">
+          <span>
+            <MapPin size={15} aria-hidden="true" /> <small>Retiro</small> {store?.address}
+          </span>
+          <span>
+            <Navigation size={15} aria-hidden="true" /> <small>Entrega</small> {order.address}
+          </span>
+        </div>
+        <ActionButton
+          className="dlv-wide"
+          disabled={!isInService}
+          icon={CheckCircle2}
+          onClick={() => activeDelivery && onAcceptDelivery(order.id, activeDelivery.id)}
+          variant="success"
+        >
+          Tomar pedido
+        </ActionButton>
+      </article>
+    );
+  };
+
   return (
     <>
       <header className="store-page-header delivery-page-header" aria-label="Delivery actual">
@@ -139,105 +234,89 @@ export function DeliveryPortal({
       <div className="role-grid delivery-grid">
         {activeView === 'dashboard' ? (
           <>
-          <Panel className="delivery-service-panel">
-            <section className="delivery-service-card" aria-label="Estado de servicio">
-              <div>
-                <span className={`store-state ${deliveryStatusClass}`}>{deliveryStatusLabel}</span>
-                <h2>{isInService ? 'Estas activo para recibir pedidos' : 'Estas fuera de servicio'}</h2>
-                <p>
-                  {isInService
-                    ? 'Los pedidos listos pueden aparecer en tu bandeja para tomarlos.'
-                    : 'Activa tu servicio cuando estes disponible para repartir.'}
-                </p>
-              </div>
-              <ActionButton
-                icon={isInService ? Clock : CheckCircle2}
-                onClick={() => setServiceConfirmAction(isInService ? 'offline' : 'available')}
-                variant={isInService ? 'danger' : 'success'}
-              >
-                {isInService ? 'Salir de servicio' : 'Activarme'}
-              </ActionButton>
-            </section>
-          </Panel>
-
-          <Panel className="delivery-command">
-            <div className="workspace-title">
-              <div>
-                <span className="zone-label">
-                  <Bike size={15} aria-hidden="true" /> Portal delivery
-                </span>
-                <h1>Acepta pedidos disponibles antes que otros repartidores.</h1>
-                <p>
-                  Cada pedido listo muestra origen, destino, distancia y ganancia estimada para
-                  decidir rapido.
-                </p>
-              </div>
-              <label className="input-shell select-shell">
-                <Bike size={17} aria-hidden="true" />
-                <select
-                  aria-label="Seleccionar delivery"
-                  onChange={(event) => setActiveDeliveryId(event.target.value)}
-                  value={activeDelivery?.id}
+            <Panel className="delivery-service-panel">
+              <section className={`delivery-service-card dlv-service ${isInService ? 'is-on' : 'is-off'}`} aria-label="Estado de servicio">
+                <div>
+                  <h2>{isInService ? 'Estas en servicio' : 'Estas fuera de servicio'}</h2>
+                  <p>
+                    {isInService
+                      ? 'Recibiras los pedidos listos para tomarlos.'
+                      : 'Activate cuando estes disponible para repartir.'}
+                  </p>
+                </div>
+                <ActionButton
+                  icon={isInService ? Clock : CheckCircle2}
+                  onClick={() => setServiceConfirmAction(isInService ? 'offline' : 'available')}
+                  variant={isInService ? 'danger' : 'success'}
                 >
-                  {deliveries.map((delivery) => (
-                    <option key={delivery.id} value={delivery.id}>
-                      {delivery.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+                  {isInService ? 'Salir' : 'Activarme'}
+                </ActionButton>
+              </section>
+            </Panel>
 
-            <div className="metrics-grid">
-              <MetricCard detail="Pedidos libres" icon={PackageCheck} label="Disponibles" tone="green" value={String(availableOrders.length)} />
-              <MetricCard detail="Ganancia posible" icon={WalletCards} label="Bolsa" tone="amber" value={formatCurrency(projectedAvailable)} />
-              <MetricCard detail="Activos ahora" icon={Truck} label="Mis rutas" tone="blue" value={String(activeJobs.length)} />
-              <MetricCard detail="Completados" icon={CheckCircle2} label="Hoy" tone="ink" value={String(activeDelivery?.completedToday ?? 0)} />
-            </div>
-          </Panel>
+            {activeRouteOrder ? (
+              <Panel
+                className="delivery-command"
+                title="Pedido en curso"
+                action={
+                  <button className="dlv-link" onClick={() => navigateDeliverySection('routes')} type="button">
+                    Ver ruta <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                }
+              >
+                {renderActiveOrder(activeRouteOrder)}
+              </Panel>
+            ) : null}
+
+            <Panel className="delivery-command" title="Tu dia">
+              <div className="store-payment-summary">
+                <span>
+                  <strong>{formatCurrency(activeDelivery?.earningsToday ?? 0)}</strong>
+                  Ganado hoy
+                </span>
+                <span>
+                  <strong>{activeDelivery?.completedToday ?? 0}</strong>
+                  Entregas
+                </span>
+                <span>
+                  <strong>
+                    <Star size={15} aria-hidden="true" /> {activeDelivery?.rating}
+                  </strong>
+                  Rating
+                </span>
+              </div>
+            </Panel>
+
+            <Panel
+              className="delivery-command"
+              title={`Pedidos disponibles (${availableOrders.length})`}
+              action={
+                availableOrders.length > 2 ? (
+                  <button className="dlv-link" onClick={() => navigateDeliverySection('available')} type="button">
+                    Ver todos <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                ) : undefined
+              }
+            >
+              {availableOrders.length ? (
+                <div className="delivery-offers">{availableOrders.slice(0, 2).map(renderOffer)}</div>
+              ) : (
+                <EmptyState body="Cuando una tienda marque un pedido como listo aparecera aqui." title="Sin pedidos libres" />
+              )}
+            </Panel>
           </>
         ) : null}
 
         {activeView === 'available' ? (
           <Panel className="delivery-command" title="Pedidos disponibles">
-            {availableOrders.length ? (
-              <div className="delivery-offers">
-                {availableOrders.map((order) => {
-                  const store = stores.find((item) => item.id === order.storeId);
-
-                  return (
-                    <article className="delivery-card" key={order.id}>
-                      <div className="delivery-card-main">
-                        <SafeImage src={store?.imageUrl} alt="" />
-                        <div>
-                          <strong>{order.id}</strong>
-                          <span>{store?.name}</span>
-                          <small>{formatTime(order.createdAt)} | {order.items.length} items</small>
-                        </div>
-                      </div>
-                      <div className="route-stack">
-                        <span>
-                          <MapPin size={15} aria-hidden="true" /> Retiro: {store?.address}
-                        </span>
-                        <span>
-                          <Navigation size={15} aria-hidden="true" /> Entrega: {order.address}
-                        </span>
-                      </div>
-                      <div className="delivery-card-footer">
-                        <span>{order.distanceKm} km</span>
-                        <strong>{formatCurrency(order.courierReward)}</strong>
-                        <ActionButton
-                          icon={CheckCircle2}
-                          onClick={() => activeDelivery && onAcceptDelivery(order.id, activeDelivery.id)}
-                          variant="success"
-                        >
-                          Tomar pedido
-                        </ActionButton>
-                      </div>
-                    </article>
-                  );
-                })}
+            {!isInService ? (
+              <div className="dlv-notice">
+                <Clock size={18} aria-hidden="true" />
+                <span>Estas fuera de servicio. Activate desde Inicio para tomar pedidos.</span>
               </div>
+            ) : null}
+            {availableOrders.length ? (
+              <div className="delivery-offers">{availableOrders.map(renderOffer)}</div>
             ) : (
               <EmptyState body="Cuando una tienda marque un pedido como listo aparecera en esta lista." title="Sin pedidos libres" />
             )}
@@ -295,44 +374,32 @@ export function DeliveryPortal({
 
             <section className="delivery-active-order" aria-label="Pedido activo">
               {activeRouteOrder ? (
-                <article className="order-card">
-                  <div className="order-card-header">
-                    <div>
-                      <strong>{activeRouteOrder.id}</strong>
-                      <span>{activeRouteStore?.name} | {activeRouteOrder.address}</span>
-                    </div>
-                    <StatusPill status={activeRouteOrder.status} />
-                  </div>
-                  <div className="route-stack">
-                    <span>
-                      <MapPin size={15} aria-hidden="true" /> {activeRouteStore?.address}
-                    </span>
-                    <span>
-                      <Clock size={15} aria-hidden="true" /> {activeRouteOrder.distanceKm} km | {formatCurrency(activeRouteOrder.courierReward)}
-                    </span>
-                  </div>
-                  <div className="button-row">
-                    {activeRouteOrder.status === 'assigned' ? (
-                      <ActionButton icon={PackageCheck} onClick={() => onOrderStatusChange(activeRouteOrder.id, 'picked_up')} variant="primary">
-                        Retirado
-                      </ActionButton>
-                    ) : null}
-                    {activeRouteOrder.status === 'picked_up' ? (
-                      <ActionButton icon={Truck} onClick={() => onOrderStatusChange(activeRouteOrder.id, 'in_transit')} variant="primary">
-                        En camino
-                      </ActionButton>
-                    ) : null}
-                    {activeRouteOrder.status === 'in_transit' ? (
-                      <ActionButton icon={CheckCircle2} onClick={() => onOrderStatusChange(activeRouteOrder.id, 'delivered')} variant="success">
-                        Entregado
-                      </ActionButton>
-                    ) : null}
-                  </div>
-                </article>
+                renderActiveOrder(activeRouteOrder)
               ) : (
                 <EmptyState body="Toma un pedido disponible para iniciar una ruta." title="Sin rutas activas" />
               )}
             </section>
+
+            {activeJobs.length > 1 ? (
+              <section className="dlv-queue" aria-label="Pedidos en cola">
+                <h3>En cola ({activeJobs.length - 1})</h3>
+                <div className="history-list">
+                  {activeJobs.slice(1).map((order) => {
+                    const store = stores.find((item) => item.id === order.storeId);
+                    return (
+                      <div className="history-row" key={order.id}>
+                        <Truck size={15} aria-hidden="true" />
+                        <div>
+                          <strong>{order.id}</strong>
+                          <span>{store?.name} | {order.address}</span>
+                        </div>
+                        <StatusPill status={order.status} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
           </Panel>
         ) : null}
 
@@ -344,13 +411,33 @@ export function DeliveryPortal({
                 Ganado hoy
               </span>
               <span>
-                <strong>{formatCurrency(projectedAvailable)}</strong>
-                Bolsa disponible
-              </span>
-              <span>
                 <strong>{finishedJobs.length}</strong>
                 Entregas cerradas
               </span>
+              <span>
+                <strong>{formatCurrency(projectedAvailable)}</strong>
+                Bolsa disponible
+              </span>
+            </div>
+            <h3 className="dlv-subtitle">Historial de entregas</h3>
+            <div className="history-list">
+              {finishedJobs.length ? (
+                finishedJobs.map((order) => {
+                  const store = stores.find((item) => item.id === order.storeId);
+                  return (
+                    <div className="history-row" key={order.id}>
+                      <CheckCircle2 size={15} aria-hidden="true" />
+                      <div>
+                        <strong>{order.id}</strong>
+                        <span>{store?.name} | {order.distanceKm} km</span>
+                      </div>
+                      <strong className="dlv-amount">{formatCurrency(order.courierReward)}</strong>
+                    </div>
+                  );
+                })
+              ) : (
+                <EmptyState body="Las entregas completadas apareceran aqui." title="Sin historial" />
+              )}
             </div>
           </Panel>
         ) : null}
@@ -361,30 +448,22 @@ export function DeliveryPortal({
               <div className="avatar-circle">{activeDelivery?.name.slice(0, 1)}</div>
               <strong>{activeDelivery?.name}</strong>
               <span>{activeDelivery?.vehicle}</span>
-              <span>
-                <Star size={15} aria-hidden="true" /> {activeDelivery?.rating} | {formatCurrency(activeDelivery?.earningsToday ?? 0)} hoy
-              </span>
             </div>
-          </Panel>
-        ) : null}
-
-        {activeView === 'history' ? (
-          <Panel className="delivery-command" title="Historial">
-            <div className="history-list">
-              {finishedJobs.length ? (
-                finishedJobs.map((order) => (
-                  <div className="history-row" key={order.id}>
-                    <CheckCircle2 size={15} aria-hidden="true" />
-                    <div>
-                      <strong>{order.id}</strong>
-                      <span>{formatCurrency(order.courierReward)}</span>
-                    </div>
-                    <StatusPill status={order.status} />
-                  </div>
-                ))
-              ) : (
-                <EmptyState body="Las entregas completadas apareceran aqui." title="Sin historial" />
-              )}
+            <div className="store-payment-summary">
+              <span>
+                <strong>
+                  <Star size={15} aria-hidden="true" /> {activeDelivery?.rating}
+                </strong>
+                Rating
+              </span>
+              <span>
+                <strong>{activeDelivery?.completedToday ?? 0}</strong>
+                Entregas hoy
+              </span>
+              <span>
+                <strong>{deliveryStatusLabel}</strong>
+                Estado
+              </span>
             </div>
           </Panel>
         ) : null}
@@ -441,7 +520,7 @@ export function DeliveryPortal({
               </span>
               <span>
                 <strong>{finishedJobs.length}</strong>
-                Historial
+                Entregas
               </span>
               <span>
                 <strong>{activeDelivery?.rating}</strong>
@@ -458,22 +537,28 @@ export function DeliveryPortal({
                 </span>
                 <ChevronRight size={20} aria-hidden="true" />
               </button>
-              <button onClick={() => navigateDeliverySection('history')} type="button">
-                <History size={20} aria-hidden="true" />
-                <span>
-                  <strong>Historial</strong>
-                  <small>Entregas completadas</small>
-                </span>
-                <ChevronRight size={20} aria-hidden="true" />
-              </button>
               <button onClick={() => navigateDeliverySection('earnings')} type="button">
                 <BarChart3 size={20} aria-hidden="true" />
                 <span>
-                  <strong>Resumen de ganancias</strong>
-                  <small>{formatCurrency(activeDelivery?.earningsToday ?? 0)} hoy</small>
+                  <strong>Ganancias e historial</strong>
+                  <small>{formatCurrency(activeDelivery?.earningsToday ?? 0)} hoy | {finishedJobs.length} entregas</small>
                 </span>
                 <ChevronRight size={20} aria-hidden="true" />
               </button>
+              <label className="input-shell select-shell dlv-switch">
+                <Bike size={17} aria-hidden="true" />
+                <select
+                  aria-label="Cambiar repartidor"
+                  onChange={(event) => setActiveDeliveryId(event.target.value)}
+                  value={activeDelivery?.id}
+                >
+                  {deliveries.map((delivery) => (
+                    <option key={delivery.id} value={delivery.id}>
+                      {delivery.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button className="account-logout-button" onClick={onLogout} type="button">
                 <LogOut size={20} aria-hidden="true" />
                 <span>
