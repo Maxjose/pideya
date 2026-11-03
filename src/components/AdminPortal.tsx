@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import pideyaLogo from '../assets/pideya-logo.png';
 import * as api from '../lib/api';
-import { ActionButton, EmptyState, SafeImage, StatusPill } from './Shared';
+import { ActionButton, EmptyState, InitialAvatar, SafeImage, StatusPill } from './Shared';
 import type { AppUser, DeliveryAgent, Order, OrderStatus, Product, Role, Storefront } from '../types';
 import { formatCurrency, statusLabels } from '../utils/format';
 
@@ -752,7 +752,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
                     <tr className={user.active === false ? 'inactive' : ''} key={user.id}>
                       <td>
                         <div className="adm-entity">
-                          <span className="adm-avatar">{(user.name || user.email || '?').slice(0, 1).toUpperCase()}</span>
+                          <InitialAvatar className="adm-avatar" name={user.name || user.email} seed={user.id} />
                           <div>
                             <strong>{user.name || 'Sin nombre'}{isMe ? ' (tu)' : ''}</strong>
                             <small>{user.email}</small>
@@ -829,7 +829,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
                     <tr className={profile?.active === false ? 'inactive' : ''} key={delivery.id}>
                       <td>
                         <div className="adm-entity">
-                          <span className="adm-avatar">{delivery.name.slice(0, 1).toUpperCase()}</span>
+                          <InitialAvatar className="adm-avatar" name={delivery.name} seed={delivery.id} />
                           <div>
                             <strong>{delivery.name}</strong>
                             <small>{profile?.email} · {profile?.phone}</small>

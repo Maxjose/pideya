@@ -113,3 +113,26 @@ export function SafeImage({ alt = '', onError, ...props }: ImgHTMLAttributes<HTM
 
   return <img alt={alt} decoding="async" onError={handleError} {...props} />;
 }
+
+const avatarPalette = ['#1268f3', '#16815d', '#d94f3d', '#a86405', '#7439c8', '#0e8a9a', '#c2416b', '#3f51b5'];
+
+export function avatarColor(seed: string) {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) | 0;
+  }
+  return avatarPalette[Math.abs(hash) % avatarPalette.length];
+}
+
+export function InitialAvatar({ name, seed, className = '' }: { name?: string; seed?: string; className?: string }) {
+  const initial = (name ?? '').trim().charAt(0).toUpperCase() || '?';
+  return (
+    <span
+      aria-hidden="true"
+      className={`initial-avatar ${className}`.trim()}
+      style={{ background: avatarColor(seed || name || '?') }}
+    >
+      {initial}
+    </span>
+  );
+}

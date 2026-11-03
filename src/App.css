@@ -8664,3 +8664,11 @@ button.adm-bar-row:hover span { color: var(--blue); }
   .adm-header, .adm-content { padding-left: 16px; padding-right: 16px; }
   .adm-form-grid { grid-template-columns: 1fr; }
 }
+
+/* Avatar con inicial */
+.initial-avatar {
+  align-items: center; border-radius: 999px; color: #fff; display: inline-flex; flex-shrink: 0;
+  font-weight: 900; justify-content: center; line-height: 1; text-transform: uppercase;
+}
+.initial-avatar.account-avatar { font-size: 1.9rem; }
+.initial-avatar.adm-avatar { color: #fff; }

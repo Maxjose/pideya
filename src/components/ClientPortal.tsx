@@ -40,7 +40,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import pideyaLogo from '../assets/pideya-logo.png';
-import { ActionButton, EmptyState, SafeImage } from './Shared';
+import { ActionButton, EmptyState, InitialAvatar, SafeImage } from './Shared';
 import type { AppUser, CartItem, Order, PaymentMethod, Product, Storefront } from '../types';
 import { formatCurrency } from '../utils/format';
 
@@ -219,8 +219,6 @@ const primaryFoodFilters: FoodFilter[] = [
 ];
 
 const nonRestaurantTypes = ['Farmacia', 'Minimarket'];
-const defaultClientPhoto =
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=220&q=80';
 
 const isFoodStore = (store: Storefront) => !nonRestaurantTypes.includes(store.type);
 
@@ -1612,7 +1610,7 @@ export function ClientPortal({
                 >
                   <ArrowLeft size={24} aria-hidden="true" />
                 </button>
-                <SafeImage className="account-avatar" src={defaultClientPhoto} alt="" />
+                <InitialAvatar className="account-avatar" name={currentUser.name} seed={currentUser.id} />
                 <div>
                   <span>Perfil del cliente</span>
                   <h2 id="account-sheet-title">{currentUser.name}</h2>

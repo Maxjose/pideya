@@ -17,7 +17,7 @@ import {
   WalletCards,
 } from 'lucide-react';
 import pideyaLogo from '../assets/pideya-logo.png';
-import { ActionButton, EmptyState, MetricCard, Panel, SafeImage, StatusPill } from './Shared';
+import { ActionButton, EmptyState, InitialAvatar, MetricCard, Panel, SafeImage, StatusPill } from './Shared';
 import type { DeliveryAgent, Order, OrderStatus, Storefront } from '../types';
 import { formatCurrency, formatTime } from '../utils/format';
 
@@ -440,7 +440,7 @@ export function DeliveryPortal({
         {activeView === 'profile' ? (
           <Panel className="delivery-command" title="Mi perfil">
             <div className="driver-card">
-              <div className="avatar-circle">{activeDelivery?.name.slice(0, 1)}</div>
+              <InitialAvatar className="avatar-circle" name={activeDelivery?.name} seed={activeDelivery?.id} />
               <strong>{activeDelivery?.name}</strong>
               <span>{activeDelivery?.vehicle}</span>
             </div>
@@ -500,7 +500,7 @@ export function DeliveryPortal({
               <button aria-label="Cerrar menu" className="account-close-button" onClick={() => setDeliveryMenuOpen(false)} type="button">
                 <ArrowLeft size={24} aria-hidden="true" />
               </button>
-              <div className="account-avatar avatar-circle">{activeDelivery?.name.slice(0, 1)}</div>
+              <InitialAvatar className="account-avatar avatar-circle" name={activeDelivery?.name} seed={activeDelivery?.id} />
               <div>
                 <span>Menu delivery</span>
                 <h2 id="delivery-menu-title">{activeDelivery?.name}</h2>
