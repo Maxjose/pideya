@@ -81,6 +81,9 @@ export const mapProfile = (r: Row): AppUser => ({
   name: r.name,
   phone: r.phone,
   role: r.role as Role,
+  email: r.email ?? '',
+  active: r.active ?? true,
+  createdAt: r.created_at,
   savedAddresses: r.saved_addresses ?? [],
 });
 
@@ -99,6 +102,7 @@ export const buildDeliveryAgents = (rows: Row[], orders: Order[]): DeliveryAgent
     return {
       id: r.id,
       name: r.name || 'Repartidor',
+      serviceStatus: r.service_status,
       vehicle: r.vehicle,
       rating: num(r.rating),
       completedToday: doneToday.length,
@@ -212,4 +216,77 @@ export async function setProductAvailable(productId: string, available: boolean)
 export async function setStoreOpen(storeId: string, open: boolean) {
   const { error } = await supabase.from('stores').update({ open }).eq('id', storeId);
   fail(error);
+}
+
+/* ===== Administración ===== */
+export type StoreInput = Omit<Storefront, 'id'>;
+
+const storeToRow = (s: StoreInput) => ({
+  owner_id: s.ownerId || null,
+  name: s.name,
+  type: s.type,
+  rating: s.rating,
+  distance_km: s.distanceKm,
+  delivery_minutes: s.deliveryMinutes,
+  delivery_fee: s.deliveryFee,
+  image_url: s.imageUrl,
+  address: s.address,
+  zone: s.zone,
+  phone: s.phone,
+  schedule: s.schedule,
+  open: s.open,
+  tags: s.tags,
+});
+
+export async function createStore(store: StoreInput) {
+  const { error } = await supabase.from('stores').insert(storeToRow(store));
+  fail(error);
+}
+
+export async function saveStore(storeId: string, store: StoreInput) {
+  const { error } = await supabase.from('stores').update(storeToRow(store)).eq('id', storeId);
+  fail(error);
+}
+
+export async function deleteStore(storeId: string) {
+  const { error } = await supabase.from('stores').delete().eq('id', storeId);
+  if (error && /foreign key/i.test(error.message)) {
+    throw new Error('La tienda tiene pedidos registrados. Desactívala (ciérrala) en lugar de borrarla.');
+  }
+  fail(error);
+}
+
+export async function deleteProduct(productId: string) {
+  const { error } = await supabase.from('products').delete().eq('id', productId);
+  fail(error);
+}
+
+export async function saveDeliveryAgent(id: string, updates: { vehicle?: string; rating?: number; serviceStatus?: 'available' | 'offline' }) {
+  const row: Row = {};
+  if (updates.vehicle !== undefined) row.vehicle = updates.vehicle;
+  if (updates.rating !== undefined) row.rating = updates.rating;
+  if (updates.serviceStatus !== undefined) row.service_status = updates.serviceStatus;
+  const { error } = await supabase.from('delivery_agents').update(row).eq('id', id);
+  fail(error);
+}
+
+export async function adminAssignDelivery(orderId: string, deliveryId: string | null) {
+  const { error } = await supabase.rpc('admin_assign_delivery', { p_order_id: orderId, p_delivery_id: deliveryId });
+  fail(error);
+}
+
+export async function adminUsers(body: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('admin-users', { body });
+  if (error) {
+    let message = error.message;
+    try {
+      const ctx = (error as { context?: Response }).context;
+      if (ctx) message = (await ctx.json()).error ?? message;
+    } catch {
+      /* respuesta sin JSON */
+    }
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
 }

@@ -56,8 +56,8 @@ function App() {
     [orders],
   );
   const isClientShell = activeRole === 'client';
-  const showTopbar = activeRole !== 'client' && activeRole !== 'store' && activeRole !== 'delivery';
-  const showInstallBanner = !standaloneMode && !installBannerDismissed;
+  const showTopbar = false;
+  const showInstallBanner = !standaloneMode && !installBannerDismissed && activeRole !== 'admin';
 
   useEffect(() => {
     const closingTimer = window.setTimeout(() => setSplashClosing(true), 1350);
@@ -541,6 +541,11 @@ function App() {
 
       {activeRole === 'admin' ? (
         <AdminPortal
+          currentUser={currentUser}
+          onLogout={logout}
+          onRefresh={async () => {
+            await Promise.all([loadCatalog(), loadPrivateData(currentUser)]);
+          }}
           deliveries={deliveries}
           orders={orders}
           products={products}

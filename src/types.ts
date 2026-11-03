@@ -87,6 +87,7 @@ export interface DeliveryAgent {
   completedToday: number;
   earningsToday: number;
   status: 'available' | 'busy' | 'offline';
+  serviceStatus?: 'available' | 'offline';
 }
 
 export interface AppUser {
@@ -94,5 +95,8 @@ export interface AppUser {
   name: string;
   role: Role;
   phone: string;
+  email?: string;
+  active?: boolean;
+  createdAt?: string;
   savedAddresses?: string[];
 }
