@@ -8445,3 +8445,29 @@
 .dlv-amount { color: var(--green) !important; }
 .dlv-switch { margin-top: 4px; }
 .store-payment-summary strong svg { color: var(--amber); vertical-align: -2px; }
+
+/* Backend: avisos */
+.auth-screen-error, .auth-screen-info {
+  border-radius: 8px; font-size: 0.88rem; font-weight: 750; margin: 0; padding: 10px 12px;
+}
+.auth-screen-error { background: var(--coral-soft); color: var(--coral); }
+.auth-screen-info { background: var(--green-soft); color: var(--green); }
+.auth-screen-primary:disabled { opacity: 0.7; cursor: wait; }
+.spin { animation: pideya-spin 0.9s linear infinite; }
+@keyframes pideya-spin { to { transform: rotate(360deg); } }
+.app-error-toast {
+  background: var(--ink); border-radius: 10px; bottom: 92px; box-shadow: var(--shadow); color: #fff;
+  font-size: 0.9rem; font-weight: 750; left: 50%; max-width: calc(100% - 32px); padding: 12px 16px;
+  position: fixed; transform: translateX(-50%); z-index: 90;
+}
+.app-loading-bar {
+  animation: pideya-load 1.2s ease-in-out infinite; background: var(--blue); height: 3px; left: 0;
+  position: fixed; top: 0; width: 40%; z-index: 95;
+}
+@keyframes pideya-load { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+.app-notice-screen {
+  align-content: center; display: grid; gap: 12px; justify-items: center; margin: 0 auto;
+  max-width: 420px; min-height: 70vh; padding: 24px 16px; text-align: center;
+}
+.app-notice-screen h2 { margin: 0; }
+.app-notice-screen p { color: var(--muted); margin: 0; }

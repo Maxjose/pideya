@@ -15,6 +15,7 @@ export type PaymentMethod = 'Pago simulado' | 'Pago contra entrega';
 
 export interface Storefront {
   id: string;
+  ownerId?: string;
   name: string;
   type: string;
   rating: number;
@@ -59,6 +60,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  customerId?: string;
   customerName: string;
   customerPhone: string;
   customerRegistered: boolean;
@@ -70,6 +72,7 @@ export interface Order {
   deliveryFee: number;
   courierReward: number;
   createdAt: string;
+  updatedAt?: string;
   distanceKm: number;
   paymentMethod: PaymentMethod;
   notes?: string;

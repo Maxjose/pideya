@@ -25,7 +25,8 @@ interface DeliveryPortalProps {
   deliveries: DeliveryAgent[];
   stores: Storefront[];
   orders: Order[];
-  onAcceptDelivery: (orderId: string, deliveryId: string) => void;
+  onAcceptDelivery: (orderId: string) => void;
+  onServiceStatusChange: (status: 'available' | 'offline') => void;
   onOrderStatusChange: (orderId: string, status: OrderStatus) => void;
   onLogout: () => void;
 }
@@ -40,10 +41,10 @@ export function DeliveryPortal({
   stores,
   orders,
   onAcceptDelivery,
+  onServiceStatusChange,
   onOrderStatusChange,
   onLogout,
 }: DeliveryPortalProps) {
-  const [activeDeliveryId, setActiveDeliveryId] = useState(deliveries[0]?.id ?? '');
   const [activeView, setActiveView] = useState<DeliveryView>('dashboard');
   const [deliveryMenuOpen, setDeliveryMenuOpen] = useState(false);
 
@@ -74,10 +75,9 @@ export function DeliveryPortal({
       window.scrollTo(0, scrollY);
     };
   }, [deliveryMenuOpen]);
-  const [serviceStatusByDeliveryId, setServiceStatusByDeliveryId] = useState<Record<string, DeliveryServiceStatus>>({});
   const [serviceConfirmAction, setServiceConfirmAction] = useState<DeliveryServiceStatus | null>(null);
   const [routeMapZoom, setRouteMapZoom] = useState(1);
-  const activeDelivery = deliveries.find((delivery) => delivery.id === activeDeliveryId) ?? deliveries[0];
+  const activeDelivery = deliveries[0];
 
   const availableOrders = useMemo(
     () => orders.filter((order) => order.status === 'ready' && !order.assignedDeliveryId),
@@ -96,9 +96,7 @@ export function DeliveryPortal({
     ? stores.find((item) => item.id === activeRouteOrder.storeId)
     : null;
   const projectedAvailable = availableOrders.reduce((total, order) => total + order.courierReward, 0);
-  const serviceStatus =
-    serviceStatusByDeliveryId[activeDelivery?.id ?? ''] ??
-    (activeDelivery?.status === 'offline' ? 'offline' : 'available');
+  const serviceStatus: DeliveryServiceStatus = activeDelivery?.status === 'offline' ? 'offline' : 'available';
   const isInService = serviceStatus === 'available';
   const deliveryStatusLabel =
     activeDelivery?.status === 'busy' ? 'En ruta' : isInService ? 'Disponible' : 'Offline';
@@ -115,10 +113,7 @@ export function DeliveryPortal({
       return;
     }
 
-    setServiceStatusByDeliveryId((current) => ({
-      ...current,
-      [activeDelivery.id]: serviceConfirmAction,
-    }));
+    onServiceStatusChange(serviceConfirmAction);
     setServiceConfirmAction(null);
   };
 
@@ -209,7 +204,7 @@ export function DeliveryPortal({
           className="dlv-wide"
           disabled={!isInService}
           icon={CheckCircle2}
-          onClick={() => activeDelivery && onAcceptDelivery(order.id, activeDelivery.id)}
+          onClick={() => onAcceptDelivery(order.id)}
           variant="success"
         >
           Tomar pedido
@@ -545,20 +540,6 @@ export function DeliveryPortal({
                 </span>
                 <ChevronRight size={20} aria-hidden="true" />
               </button>
-              <label className="input-shell select-shell dlv-switch">
-                <Bike size={17} aria-hidden="true" />
-                <select
-                  aria-label="Cambiar repartidor"
-                  onChange={(event) => setActiveDeliveryId(event.target.value)}
-                  value={activeDelivery?.id}
-                >
-                  {deliveries.map((delivery) => (
-                    <option key={delivery.id} value={delivery.id}>
-                      {delivery.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <button className="account-logout-button" onClick={onLogout} type="button">
                 <LogOut size={20} aria-hidden="true" />
                 <span>

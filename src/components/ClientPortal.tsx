@@ -114,7 +114,7 @@ interface ClientPortalProps {
     address: string;
     paymentMethod: PaymentMethod;
     notes?: string;
-  }) => string | undefined;
+  }) => Promise<string | undefined>;
 }
 
 interface FoodFilter {
@@ -596,7 +596,7 @@ export function ClientPortal({
     deliveryLocations.find((location) => location.id === selectedLocationId) ?? deliveryLocations[0];
   const customerOrders = currentUser
     ? orders.filter(
-        (order) => order.customerPhone === currentUser.phone || order.customerName === currentUser.name,
+        (order) => order.customerId === currentUser.id,
       )
     : [];
 
@@ -886,7 +886,7 @@ export function ClientPortal({
     }, totalDuration);
   };
 
-  const submitOrder = () => {
+  const submitOrder = async () => {
     setCheckoutError('');
     setLastOrderId('');
 
@@ -904,7 +904,7 @@ export function ClientPortal({
       return;
     }
 
-    const orderId = onCreateOrder({
+    const orderId = await onCreateOrder({
       customerName,
       customerPhone,
       customerRegistered: Boolean(currentUser),

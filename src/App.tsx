@@ -8,14 +8,9 @@ import { ClientPortal } from './components/ClientPortal';
 import { DeliveryPortal } from './components/DeliveryPortal';
 import { RoleDrawer } from './components/RoleDrawer';
 import { StorePortal } from './components/StorePortal';
-import {
-  deliveries as initialDeliveries,
-  orders as initialOrders,
-  products as initialProducts,
-  stores as initialStores,
-  users,
-} from './data/mockData';
-import type { AppUser, CartItem, Order, OrderStatus, PaymentMethod, Product, Role } from './types';
+import * as api from './lib/api';
+import { supabase } from './lib/supabase';
+import type { AppUser, CartItem, DeliveryAgent, Order, OrderStatus, PaymentMethod, Product, Role, Storefront } from './types';
 
 type AuthMode = 'login' | 'register';
 type BeforeInstallPromptOutcome = 'accepted' | 'dismissed';
@@ -40,12 +35,16 @@ function App() {
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const [installBannerDismissed, setInstallBannerDismissed] = useState(false);
   const [standaloneMode, setStandaloneMode] = useState(() => isStandaloneApp());
-  const [stores, setStores] = useState(initialStores);
-  const [products, setProducts] = useState(initialProducts);
-  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [stores, setStores] = useState<Storefront[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [deliveryRows, setDeliveryRows] = useState<Record<string, unknown>[]>([]);
+  const [profiles, setProfiles] = useState<AppUser[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedStoreId, setSelectedStoreId] = useState(initialStores[0].id);
-  const [managedStoreId, setManagedStoreId] = useState(initialStores[0].id);
+  const [selectedStoreId, setSelectedStoreId] = useState('');
+  const [managedStoreId, setManagedStoreId] = useState('');
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashClosing, setSplashClosing] = useState(false);
   const [entryScreenVisible, setEntryScreenVisible] = useState(true);
@@ -94,6 +93,114 @@ function App() {
     };
   }, []);
 
+  const deliveries: DeliveryAgent[] = useMemo(
+    () => api.buildDeliveryAgents(deliveryRows, orders),
+    [deliveryRows, orders],
+  );
+  const ownedStores = useMemo(
+    () =>
+      currentUser?.role === 'admin'
+        ? stores
+        : stores.filter((store) => currentUser && store.ownerId === currentUser.id),
+    [currentUser, stores],
+  );
+
+  const reportError = (error: unknown) => {
+    const message = error instanceof Error ? error.message : 'Ocurrio un error. Intenta de nuevo.';
+    setActionError(message);
+    window.setTimeout(() => setActionError(null), 4500);
+  };
+
+  const loadCatalog = async () => {
+    try {
+      const catalog = await api.fetchCatalog();
+      setStores(catalog.stores);
+      setProducts(catalog.products);
+      setSelectedStoreId((current) => current || catalog.stores[0]?.id || '');
+      setCatalogLoaded(true);
+    } catch (error) {
+      reportError(error);
+    }
+  };
+
+  const loadPrivateData = async (user: AppUser | null) => {
+    if (!user) {
+      setOrders([]);
+      setDeliveryRows([]);
+      setProfiles([]);
+      return;
+    }
+    try {
+      const [nextOrders, nextDeliveryRows, nextProfiles] = await Promise.all([
+        api.fetchOrders(),
+        api.fetchDeliveryRows(),
+        user.role === 'admin' ? api.fetchProfiles() : Promise.resolve([]),
+      ]);
+      setOrders(nextOrders);
+      setDeliveryRows(nextDeliveryRows);
+      setProfiles(nextProfiles);
+    } catch (error) {
+      reportError(error);
+    }
+  };
+
+  useEffect(() => {
+    void loadCatalog();
+  }, []);
+
+  useEffect(() => {
+    const syncSession = async (userId: string | undefined) => {
+      if (!userId) {
+        setCurrentUser(null);
+        return;
+      }
+      const profile = await api.fetchProfile(userId).catch(() => null);
+      if (profile) {
+        handleAuthComplete(profile);
+      }
+    };
+
+    void supabase.auth.getSession().then(({ data }) => syncSession(data.session?.user.id));
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') setCurrentUser(null);
+      if (event === 'SIGNED_IN' && session?.user.id) {
+        window.setTimeout(() => void syncSession(session.user.id), 0);
+      }
+    });
+    return () => data.subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    void loadPrivateData(currentUser);
+    if (currentUser && !managedStoreId) {
+      const owned = stores.find((store) => store.ownerId === currentUser.id);
+      if (owned) setManagedStoreId(owned.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, currentUser?.role, stores.length]);
+
+  // Tiempo real: cualquier cambio recarga los datos afectados
+  useEffect(() => {
+    let timer: number | undefined;
+    const refreshPrivate = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void loadPrivateData(currentUser), 250);
+    };
+    const channel = supabase
+      .channel('pideya-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stores' }, () => void loadCatalog())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => void loadCatalog())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refreshPrivate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_agents' }, refreshPrivate)
+      .subscribe();
+    return () => {
+      window.clearTimeout(timer);
+      void supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
+
   const handleAuthComplete = (user: AppUser) => {
     setCurrentUser(user);
     setActiveRole(user.role);
@@ -108,34 +215,11 @@ function App() {
     }, 520);
   };
 
-  const enterTestRole = (role: Exclude<Role, 'admin'>) => {
-    const testUsers: Record<Exclude<Role, 'admin'>, AppUser> = {
-      client: {
-        id: 'test-client',
-        name: 'Usuario de prueba',
-        phone: '+58 412-555-0000',
-        role: 'client',
-        savedAddresses: ['Residencias Turia, Torre B', 'Oficina Torre Platinum, piso 4'],
-      },
-      delivery: {
-        id: 'test-delivery',
-        name: 'Delivery de prueba',
-        phone: '+58 412-555-0001',
-        role: 'delivery',
-      },
-      store: {
-        id: 'test-store',
-        name: 'Tienda de prueba',
-        phone: '+58 412-555-0002',
-        role: 'store',
-      },
-    };
-
-    handleAuthComplete(testUsers[role]);
-  };
-
   const logout = () => {
+    void supabase.auth.signOut();
     setCurrentUser(null);
+    setCart([]);
+    setManagedStoreId('');
     setActiveRole('client');
     setDrawerOpen(false);
     setAppEntering(false);
@@ -147,6 +231,9 @@ function App() {
     updates: Partial<Pick<AppUser, 'name' | 'phone' | 'savedAddresses'>>,
   ) => {
     setCurrentUser((user) => (user ? { ...user, ...updates } : user));
+    if (currentUser) {
+      api.updateProfile(currentUser.id, updates).catch(reportError);
+    }
   };
 
   const dismissInstallBanner = () => {
@@ -211,7 +298,7 @@ function App() {
     setCart([]);
   };
 
-  const createOrder = (input: {
+  const createOrder = async (input: {
     customerName: string;
     customerPhone: string;
     customerRegistered: boolean;
@@ -219,117 +306,64 @@ function App() {
     paymentMethod: PaymentMethod;
     notes?: string;
   }) => {
-    const cartProducts = cart
-      .map((cartItem) => {
-        const product = products.find((item) => item.id === cartItem.productId);
-        return product ? { ...cartItem, product } : undefined;
-      })
-      .filter(Boolean) as Array<CartItem & { product: Product }>;
-
-    if (!cartProducts.length) {
+    if (!cart.length) {
       return undefined;
     }
-
-    const cartProductsByStore = cartProducts.reduce<Record<string, Array<CartItem & { product: Product }>>>(
-      (groups, item) => {
-        const next = { ...groups };
-        next[item.product.storeId] = [...(next[item.product.storeId] ?? []), item];
-        return next;
-      },
-      {},
-    );
-    const createdAt = new Date().toISOString();
-    const newOrders = Object.entries(cartProductsByStore).map(([storeId, storeProducts], index) => {
-      const store = stores.find((item) => item.id === storeId) ?? stores[0];
-      const subtotal = storeProducts.reduce(
-        (total, item) => total + item.quantity * item.product.price,
-        0,
-      );
-
-      return {
-        id: `PY-${1055 + orders.length + index}`,
-        customerName: input.customerName,
-        customerPhone: input.customerPhone,
-        customerRegistered: input.customerRegistered,
-        address: input.address,
-        storeId: store.id,
-        status: 'pending',
-        items: storeProducts.map((item) => ({
-          productId: item.product.id,
-          name: item.product.name,
-          quantity: item.quantity,
-          price: item.product.price,
-          option: item.option,
-        })),
-        subtotal,
-        deliveryFee: store.deliveryFee,
-        courierReward: Math.max(2, Number((store.deliveryFee + 0.8).toFixed(2))),
-        createdAt,
-        distanceKm: Number((store.distanceKm + 0.8).toFixed(1)),
-        paymentMethod: input.paymentMethod,
-        notes: input.notes,
-      } satisfies Order;
-    });
-
-    setOrders((currentOrders) => [...newOrders, ...currentOrders]);
-    setCart([]);
-    return newOrders.map((order) => order.id).join(', ');
+    try {
+      const ids = await api.placeOrder({ ...input, items: cart });
+      setCart([]);
+      void loadPrivateData(currentUser);
+      return ids.join(', ');
+    } catch (error) {
+      reportError(error);
+      return undefined;
+    }
   };
 
   const changeOrderStatus = (orderId: string, status: OrderStatus) => {
-    setOrders((currentOrders) =>
-      currentOrders.map((order) => (order.id === orderId ? { ...order, status } : order)),
-    );
+    setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, status } : order)));
+    api.updateOrderStatus(orderId, status).catch((error) => {
+      reportError(error);
+      void loadPrivateData(currentUser);
+    });
   };
 
-  const acceptDelivery = (orderId: string, deliveryId: string) => {
-    setOrders((currentOrders) =>
-      currentOrders.map((order) => {
-        if (order.id !== orderId || order.status !== 'ready' || order.assignedDeliveryId) {
-          return order;
-        }
-
-        return {
-          ...order,
-          assignedDeliveryId: deliveryId,
-          status: 'assigned',
-        };
-      }),
-    );
+  const acceptDelivery = (orderId: string) => {
+    api
+      .acceptDelivery(orderId)
+      .then((ok) => {
+        if (!ok) reportError(new Error('Otro repartidor tomo este pedido primero.'));
+        void loadPrivateData(currentUser);
+      })
+      .catch(reportError);
   };
 
-  const toggleProduct = (productId: string) => {
-    setProducts((currentProducts) =>
-      currentProducts.map((product) =>
-        product.id === productId ? { ...product, available: !product.available } : product,
-      ),
-    );
+  const changeServiceStatus = (status: 'available' | 'offline') => {
+    if (!currentUser) return;
+    setDeliveryRows((rows) => rows.map((row) => (row.id === currentUser.id ? { ...row, service_status: status } : row)));
+    api.setServiceStatus(currentUser.id, status).catch(reportError);
   };
 
   const addProduct = (product: Omit<Product, 'id'>) => {
-    setProducts((currentProducts) => [
-      {
-        ...product,
-        id: `prd-custom-${Date.now()}`,
-      },
-      ...currentProducts,
-    ]);
+    api.insertProduct(product).then(loadCatalog).catch(reportError);
   };
 
   const updateProduct = (productId: string, productUpdate: Omit<Product, 'id'>) => {
-    setProducts((currentProducts) =>
-      currentProducts.map((product) =>
-        product.id === productId ? { ...productUpdate, id: product.id } : product,
-      ),
-    );
+    setProducts((current) => current.map((product) => (product.id === productId ? { ...productUpdate, id: productId } : product)));
+    api.saveProduct(productId, productUpdate).catch((error) => {
+      reportError(error);
+      void loadCatalog();
+    });
   };
 
   const toggleStoreOpen = (storeId: string) => {
-    setStores((currentStores) =>
-      currentStores.map((storefront) =>
-        storefront.id === storeId ? { ...storefront, open: !storefront.open } : storefront,
-      ),
-    );
+    const store = stores.find((item) => item.id === storeId);
+    if (!store) return;
+    setStores((current) => current.map((item) => (item.id === storeId ? { ...item, open: !item.open } : item)));
+    api.setStoreOpen(storeId, !store.open).catch((error) => {
+      reportError(error);
+      void loadCatalog();
+    });
   };
 
   return (
@@ -377,17 +411,6 @@ function App() {
               <span>Registrarse</span>
             </button>
 
-            <div className="app-entry-role-links" aria-label="Accesos de prueba">
-              <button onClick={() => enterTestRole('delivery')} type="button">
-                <Bike size={17} aria-hidden="true" />
-                <span>Entrar como delivery</span>
-              </button>
-              <span aria-hidden="true">•</span>
-              <button onClick={() => enterTestRole('store')} type="button">
-                <Store size={17} aria-hidden="true" />
-                <span>Entrar como tienda</span>
-              </button>
-            </div>
           </div>
         </section>
       ) : null}
@@ -478,9 +501,20 @@ function App() {
         />
       ) : null}
 
-      {activeRole === 'store' ? (
+      {activeRole === 'store' && !ownedStores.length ? (
+        <section className="app-notice-screen">
+          <h2>Tu cuenta aun no tiene una tienda asignada</h2>
+          <p>Contacta a administracion para vincular tu comercio a esta cuenta.</p>
+          <button className="app-entry-button primary" onClick={logout} type="button">
+            <LogOut size={20} aria-hidden="true" />
+            <span>Cerrar sesion</span>
+          </button>
+        </section>
+      ) : null}
+
+      {activeRole === 'store' && ownedStores.length ? (
         <StorePortal
-          managedStoreId={managedStoreId}
+          managedStoreId={managedStoreId || ownedStores[0].id}
           onAddProduct={addProduct}
           onManagedStoreChange={setManagedStoreId}
           onOrderStatusChange={changeOrderStatus}
@@ -489,14 +523,15 @@ function App() {
           onUpdateProduct={updateProduct}
           orders={orders}
           products={products}
-          stores={stores}
+          stores={ownedStores}
         />
       ) : null}
 
       {activeRole === 'delivery' ? (
         <DeliveryPortal
-          deliveries={initialDeliveries}
+          deliveries={deliveries.filter((delivery) => delivery.id === currentUser?.id)}
           onAcceptDelivery={acceptDelivery}
+          onServiceStatusChange={changeServiceStatus}
           onLogout={logout}
           onOrderStatusChange={changeOrderStatus}
           orders={orders}
@@ -506,11 +541,11 @@ function App() {
 
       {activeRole === 'admin' ? (
         <AdminPortal
-          deliveries={initialDeliveries}
+          deliveries={deliveries}
           orders={orders}
           products={products}
           stores={stores}
-          users={users}
+          users={profiles}
         />
       ) : null}
 
@@ -552,6 +587,14 @@ function App() {
       ) : null}
       </main>
       ) : null}
+
+      {actionError ? (
+        <div className="app-error-toast" role="alert">
+          {actionError}
+        </div>
+      ) : null}
+
+      {!catalogLoaded && !entryScreenVisible ? <div className="app-loading-bar" aria-hidden="true" /> : null}
 
       {!splashVisible && entryScreenVisible && authMode ? (
         <AuthScreen

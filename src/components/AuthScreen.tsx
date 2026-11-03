@@ -2,16 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   Bike,
+  Loader2,
   LockKeyhole,
   Mail,
   MessageCircle,
   Phone,
-  ShieldCheck,
   Store,
   UserRound,
 } from 'lucide-react';
 import pideyaLogo from '../assets/pideya-logo.png';
-import type { AppUser, Role } from '../types';
+import { fetchProfile } from '../lib/api';
+import { supabase } from '../lib/supabase';
+import type { AppUser } from '../types';
 
 type AuthMode = 'login' | 'register';
 
@@ -27,12 +29,6 @@ const registerRoles: Array<{ role: 'client' | 'delivery'; label: string; icon: t
   { role: 'delivery', label: 'Delivery', icon: Bike },
 ];
 
-const operatorLoginRoles: Array<{ role: Exclude<Role, 'client'>; label: string; icon: typeof UserRound }> = [
-  { role: 'delivery', label: 'Delivery', icon: Bike },
-  { role: 'store', label: 'Tienda', icon: Store },
-  { role: 'admin', label: 'Admin', icon: ShieldCheck },
-];
-
 export function AuthScreen({ mode, onBack, onComplete, onModeChange }: AuthScreenProps) {
   const isRegister = mode === 'register';
   const [selectedRole, setSelectedRole] = useState<'client' | 'delivery'>('client');
@@ -41,6 +37,9 @@ export function AuthScreen({ mode, onBack, onComplete, onModeChange }: AuthScree
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [closing, setClosing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
 
   const title = isRegister ? 'Crea tu cuenta' : 'Bienvenido de nuevo';
   const subtitle = isRegister
@@ -54,6 +53,8 @@ export function AuthScreen({ mode, onBack, onComplete, onModeChange }: AuthScree
 
   useEffect(() => {
     setClosing(false);
+    setError('');
+    setInfo('');
   }, [mode]);
 
   const closeScreen = () => {
@@ -68,28 +69,64 @@ export function AuthScreen({ mode, onBack, onComplete, onModeChange }: AuthScree
     window.setTimeout(() => onModeChange(nextMode), 220);
   };
 
-  const submitAuth = (roleOverride?: Role) => {
-    const authRole: Role = roleOverride ?? selectedRole;
-    const fallbackNames: Record<Role, string> = {
-      client: 'Ana Perez',
-      delivery: 'Mario Campos',
-      store: 'Carla Medina',
-      admin: 'Jose Admin',
-    };
+  const translateError = (message: string) => {
+    if (/invalid login/i.test(message)) return 'Correo o contraseña incorrectos.';
+    if (/already registered/i.test(message)) return 'Ya existe una cuenta con este correo.';
+    if (/password should be/i.test(message)) return 'La contraseña debe tener al menos 6 caracteres.';
+    if (/email not confirmed/i.test(message)) return 'Confirma tu correo antes de iniciar sesión.';
+    if (/valid email|invalid format/i.test(message)) return 'Escribe un correo válido.';
+    return message;
+  };
 
+  const finish = (user: AppUser) => {
     setClosing(true);
-    window.setTimeout(() => {
-      onComplete({
-        id: `auth-${authRole}-${Date.now()}`,
-        name: name.trim() || fallbackNames[authRole],
-        phone: phone.trim() || '+58 412-555-0000',
-        role: authRole,
-        savedAddresses:
-          authRole === 'client'
-            ? ['Residencias Turia, Torre B', 'Oficina Torre Platinum, piso 4']
-            : undefined,
-      });
-    }, 280);
+    window.setTimeout(() => onComplete(user), 280);
+  };
+
+  const submitAuth = async () => {
+    if (busy) return;
+    setError('');
+    setInfo('');
+
+    if (!email.trim() || !password) {
+      setError('Escribe tu correo y contraseña.');
+      return;
+    }
+    if (isRegister && (!name.trim() || !phone.trim())) {
+      setError('Completa tu nombre y teléfono.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      if (isRegister) {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { data: { name: name.trim(), phone: phone.trim(), role: selectedRole } },
+        });
+        if (signUpError) throw signUpError;
+        if (!data.session) {
+          setInfo('Te enviamos un correo para confirmar tu cuenta. Luego inicia sesión.');
+          return;
+        }
+        const profile = await fetchProfile(data.session.user.id);
+        if (profile) finish(profile);
+      } else {
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (signInError) throw signInError;
+        const profile = await fetchProfile(data.user.id);
+        if (!profile) throw new Error('No encontramos el perfil de esta cuenta.');
+        finish(profile);
+      }
+    } catch (caught) {
+      setError(translateError(caught instanceof Error ? caught.message : 'No se pudo completar.'));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -180,22 +217,14 @@ export function AuthScreen({ mode, onBack, onComplete, onModeChange }: AuthScree
             />
           </label>
 
-          <button className="auth-screen-primary" onClick={() => submitAuth()} type="button">
-            <LockKeyhole size={19} aria-hidden="true" />
+          {error ? <p className="auth-screen-error" role="alert">{error}</p> : null}
+          {info ? <p className="auth-screen-info" role="status">{info}</p> : null}
+
+          <button className="auth-screen-primary" disabled={busy} onClick={() => void submitAuth()} type="button">
+            {busy ? <Loader2 className="spin" size={19} aria-hidden="true" /> : <LockKeyhole size={19} aria-hidden="true" />}
             <span>{isRegister ? `Registrarme como ${selectedRoleLabel.toLowerCase()}` : 'Iniciar sesión'}</span>
           </button>
 
-          {!isRegister ? (
-            <>
-              <div className="auth-screen-divider">
-                <span>o</span>
-              </div>
-              <button className="auth-screen-google" type="button">
-                <span className="google-mark" aria-hidden="true">G</span>
-                <span>Continuar con Google</span>
-              </button>
-            </>
-          ) : null}
         </div>
 
         {isRegister ? (
@@ -220,19 +249,7 @@ export function AuthScreen({ mode, onBack, onComplete, onModeChange }: AuthScree
             </a>
             <small>Te abriremos un chat con un mensaje preparado para solicitar el registro de tu comercio.</small>
           </section>
-        ) : (
-          <section className="auth-operator-access">
-            <span>Accesos operativos</span>
-            <div>
-              {operatorLoginRoles.map(({ role, label, icon: Icon }) => (
-                <button key={role} onClick={() => submitAuth(role)} type="button">
-                  <Icon size={18} aria-hidden="true" />
-                  <span>Entrar como {label}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
+        ) : null}
 
         <p className="auth-screen-switch">
           {isRegister ? '¿Ya tienes una cuenta?' : '¿Aún no tienes una cuenta?'}
