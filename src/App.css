@@ -8666,10 +8666,21 @@ button.adm-bar-row:hover span { color: var(--blue); }
 }
 
 /* Avatar con inicial */
-.initial-avatar {
-  align-items: center; border-radius: 999px; color: #fff; display: inline-flex; flex-shrink: 0;
-  font-weight: 900; justify-content: center; line-height: 1; text-transform: uppercase;
+.initial-avatar,
+.account-profile-card .initial-avatar {
+  align-items: center;
+  background: linear-gradient(135deg, var(--blue), #3d8bff);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-weight: 900;
+  justify-content: center;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
 }
-.initial-avatar.account-avatar { font-size: 1.9rem; }
-.initial-avatar.adm-avatar { color: #fff; }
+.account-profile-card .initial-avatar.account-avatar { font-size: 2rem; }
+.initial-avatar.avatar-circle { font-size: 1.1rem; }
+.initial-avatar.adm-avatar { font-size: 0.95rem; }
 .hero-location-menu small.location-add { color: var(--blue); font-weight: 850; }
