@@ -377,14 +377,6 @@ function App() {
               <span>Registrarse</span>
             </button>
 
-            <div className="app-entry-divider">
-              <span>Modo de prueba</span>
-            </div>
-
-            <button className="app-entry-button test" onClick={() => enterTestRole('client')} type="button">
-              Entrar como prueba
-            </button>
-
             <div className="app-entry-role-links" aria-label="Accesos de prueba">
               <button onClick={() => enterTestRole('delivery')} type="button">
                 <Bike size={17} aria-hidden="true" />
