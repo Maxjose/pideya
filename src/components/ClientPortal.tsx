@@ -73,23 +73,11 @@ const emptyAddressForm: AddressForm = {
   longitude: '',
 };
 
-const initialClientNotifications = [
-  {
-    id: 'promo-free-delivery',
-    title: 'Envio destacado',
-    body: 'Burger Line tiene envios rapidos cerca de tu ubicacion.',
-  },
-  {
-    id: 'order-ready',
-    title: 'Pedido en curso',
-    body: 'Tu ultimo pedido simulado sigue activo en la plataforma.',
-  },
-  {
-    id: 'new-desserts',
-    title: 'Nuevos postres',
-    body: 'Dulce Ruta agrego opciones populares para esta semana.',
-  },
-];
+interface ClientNotification {
+  id: string;
+  title: string;
+  body: string;
+}
 
 interface ClientPortalProps {
   stores: Storefront[];
@@ -276,10 +264,12 @@ export function ClientPortal({
   const [homePromoIndex, setHomePromoIndex] = useState(0);
   const [activeRestaurantStoreId, setActiveRestaurantStoreId] = useState<string | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<DeliveryLocationId>('home');
+  const [currentLocationAddress, setCurrentLocationAddress] = useState('');
+  const [locatingCurrent, setLocatingCurrent] = useState(false);
   const [locationMenuOpen, setLocationMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsClosing, setNotificationsClosing] = useState(false);
-  const [clientNotifications, setClientNotifications] = useState(initialClientNotifications);
+  const [clientNotifications, setClientNotifications] = useState<ClientNotification[]>([]);
   const [notificationsClearing, setNotificationsClearing] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [cartOpen, setCartOpen] = useState(false);
@@ -577,17 +567,17 @@ export function ClientPortal({
     {
       id: 'home' as const,
       label: 'Casa',
-      address: currentUser?.savedAddresses?.[0] ?? 'Residencias Turia, Torre B',
+      address: currentUser?.savedAddresses?.[0]?.trim() ?? '',
     },
     {
       id: 'work' as const,
       label: 'Trabajo',
-      address: currentUser?.savedAddresses?.[1] ?? 'Oficina Torre Platinum, piso 4',
+      address: currentUser?.savedAddresses?.[1]?.trim() ?? '',
     },
     {
       id: 'current' as const,
-      label: 'Mi Ubicacion',
-      address: 'Ubicacion actual del cliente',
+      label: 'Mi ubicación',
+      address: currentLocationAddress,
     },
   ];
   const selectedDeliveryLocation =
@@ -726,6 +716,51 @@ export function ClientPortal({
 
     onUpdateProfile({ name, phone });
     setProfileSaved(true);
+  };
+
+  const detectQuickLocation = () => {
+    if (!navigator.geolocation) return;
+    setLocatingCurrent(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        let address = `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`;
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${coords.latitude}&lon=${coords.longitude}&zoom=18&addressdetails=1&accept-language=es`,
+          );
+          if (response.ok) {
+            const data = (await response.json()) as { display_name?: string };
+            if (data.display_name) address = data.display_name.split(',').slice(0, 3).join(',').trim();
+          }
+        } catch {
+          /* se usan las coordenadas */
+        }
+        setCurrentLocationAddress(address);
+        setSelectedLocationId('current');
+        setLocatingCurrent(false);
+      },
+      () => setLocatingCurrent(false),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  const selectQuickLocation = (id: DeliveryLocationId, address: string) => {
+    if (address) {
+      setSelectedLocationId(id);
+      setLocationMenuOpen(false);
+      return;
+    }
+    if (id === 'current') {
+      detectQuickLocation();
+      return;
+    }
+    setLocationMenuOpen(false);
+    if (!currentUser) {
+      onOpenLogin();
+      return;
+    }
+    openAccount();
+    setAccountSection('addresses');
   };
 
   const openAccountSection = (section: AccountSection) => {
@@ -1170,7 +1205,7 @@ export function ClientPortal({
                         <MapPin size={19} aria-hidden="true" />
                         <span>
                           <strong>{selectedDeliveryLocation.label}</strong>
-                          <small>{selectedDeliveryLocation.address}</small>
+                          <small>{selectedDeliveryLocation.address || 'Agregar dirección'}</small>
                         </span>
                         <ChevronDown size={18} aria-hidden="true" />
                       </button>
@@ -1181,16 +1216,20 @@ export function ClientPortal({
                             <button
                               className={selectedLocationId === location.id ? 'active' : ''}
                               key={location.id}
-                              onClick={() => {
-                                setSelectedLocationId(location.id);
-                                setLocationMenuOpen(false);
-                              }}
+                              onClick={() => selectQuickLocation(location.id, location.address)}
                               type="button"
                             >
                               <MapPin size={16} aria-hidden="true" />
                               <span>
                                 <strong>{location.label}</strong>
-                                <small>{location.address}</small>
+                                <small className={location.address ? '' : 'location-add'}>
+                                  {location.address ||
+                                    (location.id === 'current'
+                                      ? locatingCurrent
+                                        ? 'Detectando...'
+                                        : 'Usar mi ubicación actual'
+                                      : 'Agregar')}
+                                </small>
                               </span>
                             </button>
                           ))}

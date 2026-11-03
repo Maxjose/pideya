@@ -8672,3 +8672,4 @@ button.adm-bar-row:hover span { color: var(--blue); }
 }
 .initial-avatar.account-avatar { font-size: 1.9rem; }
 .initial-avatar.adm-avatar { color: #fff; }
+.hero-location-menu small.location-add { color: var(--blue); font-weight: 850; }
