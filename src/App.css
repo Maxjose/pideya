@@ -8761,3 +8761,49 @@ button.adm-bar-row:hover span { color: var(--blue); }
 .adm-kpis.three { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .adm-sim-list { margin-top: 14px; }
 .adm-field input:disabled { background: #f8fafc; color: var(--muted); }
+
+/* ===== Panel del dueño: escritorio con el estilo del admin (móvil sin cambios) ===== */
+.store-shell, .store-desk-main, .store-desk-content { display: contents; }
+.store-desk-only { display: none !important; }
+@media (min-width: 1024px) {
+  .store-shell {
+    background: var(--bg); display: grid; grid-template-columns: 248px minmax(0, 1fr);
+    inset: 0; overflow: hidden; position: fixed; z-index: 30;
+  }
+  .store-shell > aside.store-desk-only { display: flex !important; }
+  .store-shell header.adm-header.store-desk-only { display: flex !important; }
+  .store-desk-main { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  .store-desk-content { display: block; overflow-y: auto; padding: 22px 28px 40px; }
+  .store-shell .store-page-header,
+  .store-shell .store-bottom-nav,
+  .store-shell .store-inventory-fab,
+  .store-shell .store-command .workspace-title { display: none !important; }
+  .store-shell .role-grid {
+    display: grid; gap: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; max-width: none; width: 100%;
+  }
+  .store-shell .role-grid > .panel { border-radius: 12px; box-shadow: none; grid-column: 1 / -1; margin: 0; }
+  .store-shell .role-grid > .store-payments-panel { grid-column: auto; }
+  .store-shell .store-command .metrics-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .store-shell .order-list { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+  .store-desk-nav-label {
+    color: rgba(201, 213, 234, 0.55); font-size: 0.72rem; font-weight: 900; letter-spacing: 0.06em;
+    padding: 14px 12px 4px; text-transform: uppercase;
+  }
+  .store-desk-avatar { border-radius: 10px; flex-shrink: 0; height: 36px; object-fit: cover; width: 36px; }
+  .store-desk-open {
+    align-items: center; background: var(--coral-soft); border: 1px solid transparent; border-radius: 10px; color: var(--coral);
+    cursor: pointer; display: inline-flex; font: inherit; font-weight: 850; gap: 8px; min-height: 40px; padding: 0 14px;
+  }
+  .store-desk-open.open { background: var(--green-soft); color: var(--green); }
+  .store-desk-open:hover { border-color: currentColor; }
+}
+@media (min-width: 1024px) {
+  .store-shell .store-command .metrics-grid { margin-top: 0; }
+  .store-shell .role-grid > .side-stack { grid-column: 1 / -1; }
+  .store-shell .store-info {
+    align-items: center; column-gap: 20px; display: grid; grid-template-columns: 260px 1fr auto; grid-template-rows: repeat(4, auto);
+  }
+  .store-shell .store-info > img { aspect-ratio: 1.6; border-radius: 10px; grid-row: 1 / span 4; height: auto; width: 260px; }
+  .store-shell .store-info > button, .store-shell .store-info > .action-button { grid-column: 3; grid-row: 1 / span 4; }
+  .store-shell .order-card-header > div { display: grid; gap: 2px; }
+}

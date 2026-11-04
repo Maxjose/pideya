@@ -226,8 +226,118 @@ export function StorePortal({
     setProductSheetOpen(false);
   };
 
+  const deskNav: Array<{ view: StoreView; label: string; icon: typeof Store; badge?: number }> = [
+    { view: 'dashboard', label: 'Inicio', icon: Store },
+    { view: 'orders', label: 'Pedidos', icon: ClipboardList, badge: dashboard.newOrders },
+    { view: 'inventory', label: 'Inventario', icon: PackageCheck },
+    { view: 'payments', label: 'Pagos', icon: WalletCards },
+  ];
+  const deskConfig: Array<{ view: StoreView; label: string; icon: typeof Store }> = [
+    { view: 'paymentData', label: 'Métodos de pago', icon: CreditCard },
+    { view: 'location', label: 'Ubicación', icon: MapPin },
+    { view: 'schedule', label: 'Horario', icon: Clock },
+    { view: 'promotions', label: 'Promociones', icon: Tags },
+    { view: 'settings', label: 'Ajustes', icon: Settings },
+  ];
+  const deskTitles: Record<StoreView, { title: string; subtitle: string }> = {
+    dashboard: { title: 'Inicio', subtitle: 'Resumen de la operación de tu tienda.' },
+    orders: { title: 'Pedidos', subtitle: `${storeOrders.length} pedidos · ${dashboard.newOrders} nuevos` },
+    inventory: { title: 'Inventario', subtitle: `${storeProducts.length} productos · ${lowStockProducts} con stock bajo` },
+    payments: { title: 'Pagos', subtitle: 'Ventas liquidadas y por conciliar.' },
+    paymentData: { title: 'Métodos de pago', subtitle: 'Cómo te pagan tus clientes.' },
+    location: { title: 'Ubicación', subtitle: store.address },
+    schedule: { title: 'Horario y disponibilidad', subtitle: store.schedule },
+    promotions: { title: 'Promociones', subtitle: 'Cupones, descuentos y combos.' },
+    settings: { title: 'Ajustes de tienda', subtitle: 'Perfil, permisos y notificaciones.' },
+  };
+  const deskHeader = deskTitles[activeView];
+
   return (
-    <>
+    <div className="store-shell">
+    {/* Barra lateral: solo escritorio */}
+    <aside className="adm-sidebar store-desk-only" aria-label="Menu de tienda">
+      <div className="adm-brand">
+        <img src={pideyaLogo} alt="PideYa" />
+        <div>
+          <strong>PideYa</strong>
+          <span>Mi negocio</span>
+        </div>
+      </div>
+      <nav aria-label="Secciones de la tienda">
+        {deskNav.map(({ view, label, icon: Icon, badge }) => (
+          <button className={activeView === view ? 'active' : ''} key={view} onClick={() => navigateStoreSection(view)} type="button">
+            <Icon size={19} aria-hidden="true" />
+            <span>{label}</span>
+            {badge ? <strong>{badge}</strong> : null}
+          </button>
+        ))}
+        <small className="store-desk-nav-label">Configuración</small>
+        {deskConfig.map(({ view, label, icon: Icon }) => (
+          <button className={activeView === view ? 'active' : ''} key={view} onClick={() => navigateStoreSection(view)} type="button">
+            <Icon size={19} aria-hidden="true" />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="adm-sidebar-foot">
+        <div className="adm-me">
+          <SafeImage className="store-desk-avatar" src={store.imageUrl} alt="" />
+          <div>
+            <strong>{store.name}</strong>
+            <small>{store.open ? 'Abierta ahora' : 'Cerrada'}</small>
+          </div>
+        </div>
+        <button className="adm-logout" onClick={onLogout} type="button">
+          <LogOut size={18} aria-hidden="true" />
+          <span>Cerrar sesion</span>
+        </button>
+      </div>
+    </aside>
+
+    <div className="store-desk-main">
+    <header className="adm-header store-desk-only">
+      <div>
+        <h1>{deskHeader.title}</h1>
+        <p>{deskHeader.subtitle}</p>
+      </div>
+      <div className="adm-header-actions">
+        {stores.length > 1 ? (
+          <select
+            aria-label="Seleccionar tienda administrada"
+            className="adm-select"
+            onChange={(event) => onManagedStoreChange(event.target.value)}
+            value={store.id}
+          >
+            {stores.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        {activeView === 'inventory' ? (
+          <>
+            <ActionButton icon={Tags} onClick={() => setCategorySheetOpen(true)} variant="ghost">
+              Categorías
+            </ActionButton>
+            <ActionButton icon={Plus} onClick={openNewProductSheet} variant="primary">
+              Nuevo producto
+            </ActionButton>
+          </>
+        ) : null}
+        <button
+          className={`store-desk-open ${store.open ? 'open' : ''}`}
+          onClick={() => onToggleStoreOpen(store.id)}
+          title={store.open ? 'Cerrar tienda' : 'Abrir tienda'}
+          type="button"
+        >
+          <Power size={16} aria-hidden="true" />
+          <span>{store.open ? 'Abierta' : 'Cerrada'}</span>
+        </button>
+      </div>
+    </header>
+
+    <div className="store-desk-content">
     <header className="store-page-header" aria-label="Tienda actual">
       <div className="store-page-brand">
         <img src={pideyaLogo} alt="PideYa" />
@@ -514,6 +624,9 @@ export function StorePortal({
         </Panel>
       ) : null}
     </div>
+    </div>
+    </div>
+
 
     <nav className="mobile-bottom-nav store-bottom-nav" aria-label="Menu de tienda">
       <button
@@ -785,6 +898,6 @@ export function StorePortal({
         </section>
       </div>
     ) : null}
-    </>
+    </div>
   );
 }
