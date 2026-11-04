@@ -1085,7 +1085,8 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
             </button>
           </div>
           {storeTab === 'payments' && storeForm.id ? <PaymentMethodsEditor readOnly storeId={storeForm.id} /> : null}
-          <div className="adm-form-grid" hidden={storeTab !== 'info'}>
+          {storeTab === 'info' ? (
+          <div className="adm-form-grid">
             {(() => {
               const d = storeForm.data;
               const set = (patch: Partial<api.StoreInput>) => setStoreForm({ ...storeForm, data: { ...d, ...patch } });
@@ -1126,6 +1127,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
               );
             })()}
           </div>
+          ) : null}
         </Modal>
       ) : null}
 
