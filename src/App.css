@@ -8756,3 +8756,5 @@ button.adm-bar-row:hover span { color: var(--blue); }
 .adm-tabs button.active { border-bottom-color: var(--blue); color: var(--blue); }
 .adm-tabs button:disabled { cursor: not-allowed; opacity: 0.5; }
 .pm-intro { color: var(--muted); margin: 0 0 12px; }
+.adm-modal.fixed-height { height: min(720px, calc(100vh - 48px)); }
+.adm-modal.fixed-height .adm-modal-body { flex: 1; }

@@ -113,7 +113,9 @@ function Modal({
   onClose,
   children,
   footer,
+  className = '',
 }: {
+  className?: string;
   title: string;
   onClose: () => void;
   children: ReactNode;
@@ -121,7 +123,7 @@ function Modal({
 }) {
   return (
     <div className="adm-modal-backdrop" role="presentation" onClick={onClose}>
-      <section className="adm-modal" role="dialog" aria-label={title} onClick={(event) => event.stopPropagation()}>
+      <section className={`adm-modal ${className}`.trim()} role="dialog" aria-label={title} onClick={(event) => event.stopPropagation()}>
         <header>
           <h2>{title}</h2>
           <button aria-label="Cerrar" className="adm-icon-button" onClick={onClose} type="button">
@@ -1066,6 +1068,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
             </>
           }
           onClose={() => setStoreForm(null)}
+          className="fixed-height"
           title={storeForm.id ? 'Editar tienda' : 'Nueva tienda'}
         >
           <div className="adm-tabs" role="tablist">
