@@ -8685,3 +8685,33 @@ button.adm-bar-row:hover span { color: var(--blue); }
 .initial-avatar.adm-avatar { font-size: 0.95rem; }
 .hero-location-menu small.location-add { color: var(--blue); font-weight: 850; }
 .adm-drawer.wide { max-width: 640px; }
+
+/* Admin: Servicios / tarifas */
+.adm-services { align-items: start; display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) 380px; }
+.adm-services-main, .adm-services-side { display: grid; gap: 18px; }
+.adm-services-side { position: sticky; top: 0; }
+.adm-card-desc { color: var(--muted); font-size: 0.88rem; margin: -8px 0 14px; }
+.adm-card-head .adm-card-desc { margin-bottom: 0; }
+.adm-card-head { gap: 16px; margin-bottom: 14px; }
+.adm-card-head h3 { margin-bottom: 10px; }
+.adm-form-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.adm-disabled { opacity: 0.45; }
+.adm-input-suffix {
+  align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 10px; display: flex; min-height: 40px; overflow: hidden;
+}
+.adm-input-suffix:focus-within { border-color: var(--blue); outline: 3px solid rgba(18, 104, 243, 0.12); }
+.adm-field .adm-input-suffix input { border: 0; flex: 1; min-width: 0; outline: none; }
+.adm-input-suffix span { background: #f8fafc; border-left: 1px solid var(--line); color: var(--muted); font-weight: 800; padding: 0 12px; line-height: 40px; }
+.adm-save-bar {
+  align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; display: flex; gap: 10px; padding: 12px 16px;
+}
+.adm-save-bar span { color: var(--muted); flex: 1; font-size: 0.88rem; font-weight: 700; }
+.adm-range { align-items: center; display: flex; gap: 12px; }
+.adm-range input { accent-color: var(--blue); flex: 1; }
+.adm-sim-result { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin: 14px 0; }
+.adm-sim-result div { background: var(--surface-soft); border-radius: 10px; padding: 12px; }
+.adm-sim-result span { color: var(--muted); display: block; font-size: 0.78rem; font-weight: 850; }
+.adm-sim-result strong { color: var(--blue-dark); font-size: 1.4rem; }
+.adm-table.compact td, .adm-table.compact th { padding: 8px 10px; }
+.adm-services-side .adm-hint { margin-top: 12px; }
+@media (max-width: 1180px) { .adm-services { grid-template-columns: 1fr; } .adm-services-side { position: static; } }

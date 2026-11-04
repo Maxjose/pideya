@@ -10,7 +10,7 @@ import { RoleDrawer } from './components/RoleDrawer';
 import { StorePortal } from './components/StorePortal';
 import * as api from './lib/api';
 import { supabase } from './lib/supabase';
-import type { AppUser, CartItem, DeliveryAgent, Order, OrderStatus, PaymentMethod, Product, Role, Storefront } from './types';
+import type { ServiceSettings, AppUser, CartItem, DeliveryAgent, Order, OrderStatus, PaymentMethod, Product, Role, Storefront } from './types';
 
 type AuthMode = 'login' | 'register';
 type BeforeInstallPromptOutcome = 'accepted' | 'dismissed';
@@ -44,6 +44,7 @@ function App() {
   const [selectedStoreId, setSelectedStoreId] = useState('');
   const [managedStoreId, setManagedStoreId] = useState('');
   const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [serviceSettings, setServiceSettings] = useState<ServiceSettings>(api.defaultServiceSettings);
   const [actionError, setActionError] = useState<string | null>(null);
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashClosing, setSplashClosing] = useState(false);
@@ -97,6 +98,11 @@ function App() {
     () => api.buildDeliveryAgents(deliveryRows, orders),
     [deliveryRows, orders],
   );
+  // El costo de envío lo calcula la app con las tarifas del servicio
+  const pricedStores = useMemo(
+    () => stores.map((store) => ({ ...store, deliveryFee: api.calcDeliveryFee(serviceSettings, api.deliveryDistance(store.distanceKm)) })),
+    [serviceSettings, stores],
+  );
   const ownedStores = useMemo(
     () =>
       currentUser?.role === 'admin'
@@ -113,7 +119,8 @@ function App() {
 
   const loadCatalog = async () => {
     try {
-      const catalog = await api.fetchCatalog();
+      const [catalog, settings] = await Promise.all([api.fetchCatalog(), api.fetchServiceSettings()]);
+      setServiceSettings(settings);
       setStores(catalog.stores);
       setProducts(catalog.products);
       setSelectedStoreId((current) => current || catalog.stores[0]?.id || '');
@@ -191,6 +198,7 @@ function App() {
       .channel('pideya-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stores' }, () => void loadCatalog())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => void loadCatalog())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_settings' }, () => void loadCatalog())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refreshPrivate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_agents' }, refreshPrivate)
       .subscribe();
@@ -497,7 +505,7 @@ function App() {
           orders={orders}
           products={products}
           selectedStoreId={selectedStoreId}
-          stores={stores}
+          stores={pricedStores}
         />
       ) : null}
 
@@ -549,6 +557,7 @@ function App() {
           deliveries={deliveries}
           orders={orders}
           products={products}
+          serviceSettings={serviceSettings}
           stores={stores}
           users={profiles}
         />

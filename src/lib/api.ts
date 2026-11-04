@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { AppUser, DeliveryAgent, Order, OrderStatus, PaymentMethod, Product, Role, Storefront } from '../types';
+import type { ServiceSettings, AppUser, DeliveryAgent, Order, OrderStatus, PaymentMethod, Product, Role, Storefront } from '../types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = Record<string, any>;
@@ -290,3 +290,73 @@ export async function adminUsers(body: Record<string, unknown>) {
   if (data?.error) throw new Error(data.error);
   return data;
 }
+
+/* ===== Tarifas del servicio ===== */
+export const defaultServiceSettings: ServiceSettings = {
+  baseFee: 1,
+  perKm: 0.5,
+  minFee: 1.5,
+  rounding: 0.1,
+  nightEnabled: false,
+  nightStart: '22:00',
+  nightEnd: '06:00',
+  nightSurchargePct: 20,
+  timezone: 'America/Caracas',
+};
+
+export async function fetchServiceSettings(): Promise<ServiceSettings> {
+  const { data, error } = await supabase.from('service_settings').select('*').eq('id', 1).maybeSingle();
+  fail(error);
+  if (!data) return defaultServiceSettings;
+  return {
+    baseFee: num(data.base_fee),
+    perKm: num(data.per_km),
+    minFee: num(data.min_fee),
+    rounding: num(data.rounding),
+    nightEnabled: data.night_enabled,
+    nightStart: String(data.night_start).slice(0, 5),
+    nightEnd: String(data.night_end).slice(0, 5),
+    nightSurchargePct: num(data.night_surcharge_pct),
+    timezone: data.timezone,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function saveServiceSettings(settings: ServiceSettings) {
+  const { error } = await supabase
+    .from('service_settings')
+    .update({
+      base_fee: settings.baseFee,
+      per_km: settings.perKm,
+      min_fee: settings.minFee,
+      rounding: settings.rounding,
+      night_enabled: settings.nightEnabled,
+      night_start: settings.nightStart,
+      night_end: settings.nightEnd,
+      night_surcharge_pct: settings.nightSurchargePct,
+    })
+    .eq('id', 1);
+  fail(error);
+}
+
+const localTime = (date: Date, timezone: string) =>
+  new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: timezone }).format(date);
+
+export function isNightTime(settings: ServiceSettings, at = new Date()) {
+  if (!settings.nightEnabled) return false;
+  const now = localTime(at, settings.timezone);
+  const { nightStart: start, nightEnd: end } = settings;
+  return start <= end ? now >= start && now < end : now >= start || now < end;
+}
+
+/** Misma fórmula que el servidor (private.calc_delivery_fee). El servidor siempre decide el cobro final. */
+export function calcDeliveryFee(settings: ServiceSettings, distanceKm: number, at = new Date(), forceNight?: boolean) {
+  let fee = Math.max(settings.minFee, settings.baseFee + settings.perKm * Math.max(distanceKm, 0));
+  const night = forceNight ?? isNightTime(settings, at);
+  if (night) fee *= 1 + settings.nightSurchargePct / 100;
+  if (settings.rounding > 0) fee = Math.ceil(Number((fee / settings.rounding).toFixed(6))) * settings.rounding;
+  return Number(fee.toFixed(2));
+}
+
+/** Distancia que usa el servidor para cobrar (distancia de la tienda + margen de entrega). */
+export const deliveryDistance = (storeDistanceKm: number) => Number((storeDistanceKm + 0.8).toFixed(1));

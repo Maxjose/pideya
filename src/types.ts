@@ -100,3 +100,16 @@ export interface AppUser {
   createdAt?: string;
   savedAddresses?: string[];
 }
+
+export interface ServiceSettings {
+  baseFee: number;
+  perKm: number;
+  minFee: number;
+  rounding: number;
+  nightEnabled: boolean;
+  nightStart: string;
+  nightEnd: string;
+  nightSurchargePct: number;
+  timezone: string;
+  updatedAt?: string;
+}

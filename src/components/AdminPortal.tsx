@@ -13,6 +13,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Settings2,
   ShieldCheck,
   Store,
   Trash2,
@@ -24,7 +25,7 @@ import {
 import pideyaLogo from '../assets/pideya-logo.png';
 import * as api from '../lib/api';
 import { ActionButton, EmptyState, InitialAvatar, SafeImage, StatusPill } from './Shared';
-import type { AppUser, DeliveryAgent, Order, OrderStatus, Product, Role, Storefront } from '../types';
+import type { ServiceSettings, AppUser, DeliveryAgent, Order, OrderStatus, Product, Role, Storefront } from '../types';
 import { formatCurrency, statusLabels } from '../utils/format';
 
 interface AdminPortalProps {
@@ -34,11 +35,12 @@ interface AdminPortalProps {
   orders: Order[];
   users: AppUser[];
   deliveries: DeliveryAgent[];
+  serviceSettings: ServiceSettings;
   onRefresh: () => Promise<void> | void;
   onLogout: () => void;
 }
 
-type Section = 'overview' | 'orders' | 'stores' | 'users' | 'deliveries';
+type Section = 'overview' | 'orders' | 'stores' | 'users' | 'deliveries' | 'services';
 
 const roleLabels: Record<Role, string> = {
   client: 'Cliente',
@@ -155,7 +157,7 @@ function Kpi({ label, value, detail, icon: Icon, tone }: { label: string; value:
   );
 }
 
-export function AdminPortal({ currentUser, stores, products, orders, users, deliveries, onRefresh, onLogout }: AdminPortalProps) {
+export function AdminPortal({ currentUser, stores, products, orders, users, deliveries, serviceSettings, onRefresh, onLogout }: AdminPortalProps) {
   const [section, setSection] = useState<Section>('overview');
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
@@ -169,6 +171,8 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
 
   // formularios
   const [storeForm, setStoreForm] = useState<{ id?: string; data: api.StoreInput } | null>(null);
+  const [feeForm, setFeeForm] = useState<ServiceSettings | null>(null);
+  const [previewKm, setPreviewKm] = useState(3);
   const [productsStoreId, setProductsStoreId] = useState<string | null>(null);
   const [productQuery, setProductQuery] = useState('');
   const [userForm, setUserForm] = useState<UserForm | null>(null);
@@ -360,6 +364,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
     { id: 'stores', label: 'Tiendas', icon: Store },
     { id: 'users', label: 'Usuarios', icon: UsersRound },
     { id: 'deliveries', label: 'Repartidores', icon: Bike },
+    { id: 'services', label: 'Servicios', icon: Settings2 },
   ];
 
   const sectionTitles: Record<Section, { title: string; subtitle: string; action?: ReactNode }> = {
@@ -391,6 +396,10 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
           Nuevo repartidor
         </ActionButton>
       ),
+    },
+    services: {
+      title: 'Servicios',
+      subtitle: 'Tarifas de envio que la aplicacion cobra en todos los pedidos.',
     },
   };
 
@@ -529,7 +538,6 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
                   <th>Tienda</th>
                   <th>Dueño</th>
                   <th>Zona</th>
-                  <th className="num">Envio</th>
                   <th className="num">Productos</th>
                   <th className="num">Pedidos</th>
                   <th className="num">Ventas</th>
@@ -551,7 +559,6 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
                     </td>
                     <td>{store.ownerId ? userById.get(store.ownerId)?.name || userById.get(store.ownerId)?.email || 'Asignado' : <span className="adm-muted">Sin asignar</span>}</td>
                     <td>{store.zone}</td>
-                    <td className="num">{formatCurrency(store.deliveryFee)}</td>
                     <td className="num">{productCount}</td>
                     <td className="num">{count}</td>
                     <td className="num">{formatCurrency(sales)}</td>
@@ -777,6 +784,127 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
     </>
   );
 
+  const fees = feeForm ?? serviceSettings;
+  const setFee = (patch: Partial<ServiceSettings>) => setFeeForm({ ...fees, ...patch });
+  const feeDirty = feeForm !== null && JSON.stringify(feeForm) !== JSON.stringify(serviceSettings);
+  const saveFees = async () => {
+    if (!feeForm) return;
+    if (feeForm.nightEnabled && feeForm.nightStart === feeForm.nightEnd) {
+      notify('error', 'La hora de inicio y fin de la tarifa nocturna no pueden ser iguales.');
+      return;
+    }
+    const ok = await run(() => api.saveServiceSettings(feeForm), 'Tarifas guardadas. Se aplican a los pedidos nuevos.');
+    if (ok) setFeeForm(null);
+  };
+  const numberInput = (value: number, onChange: (value: number) => void, step = '0.05', suffix = '$') => (
+    <div className="adm-input-suffix">
+      <input min={0} onChange={(e) => onChange(Math.max(0, Number(e.target.value)))} step={step} type="number" value={value} />
+      <span>{suffix}</span>
+    </div>
+  );
+  const previewRows = [1, 3, 5, 8].map((km) => ({
+    km,
+    day: api.calcDeliveryFee(fees, km, new Date(), false),
+    night: api.calcDeliveryFee(fees, km, new Date(), true),
+  }));
+
+  const renderServices = () => (
+    <div className="adm-services">
+      <div className="adm-services-main">
+        <section className="adm-card">
+          <h3>Tarifa de envio</h3>
+          <p className="adm-card-desc">El costo de envio lo calcula la aplicacion para todas las tiendas: tarifa base + precio por kilometro, nunca por debajo de la tarifa minima.</p>
+          <div className="adm-form-grid three">
+            <Field label="Tarifa base">{numberInput(fees.baseFee, (baseFee) => setFee({ baseFee }))}</Field>
+            <Field label="Precio por kilometro">{numberInput(fees.perKm, (perKm) => setFee({ perKm }), '0.05', '$/km')}</Field>
+            <Field label="Tarifa minima">{numberInput(fees.minFee, (minFee) => setFee({ minFee }))}</Field>
+          </div>
+        </section>
+
+        <section className="adm-card">
+          <h3>Redondeo</h3>
+          <p className="adm-card-desc">El total del envio se redondea hacia arriba al multiplo elegido.</p>
+          <div className="adm-segmented">
+            {[0, 0.05, 0.1, 0.25, 0.5, 1].map((value) => (
+              <button className={fees.rounding === value ? 'active' : ''} key={value} onClick={() => setFee({ rounding: value })} type="button">
+                {value === 0 ? 'Sin redondeo' : formatCurrency(value)}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="adm-card">
+          <div className="adm-card-head">
+            <div>
+              <h3>Tarifa nocturna</h3>
+              <p className="adm-card-desc">Recargo porcentual sobre el envio en el horario indicado (hora de Venezuela).</p>
+            </div>
+            <Toggle checked={fees.nightEnabled} label="Activar tarifa nocturna" onChange={() => setFee({ nightEnabled: !fees.nightEnabled })} />
+          </div>
+          <div className={`adm-form-grid three ${fees.nightEnabled ? '' : 'adm-disabled'}`.trim()}>
+            <Field label="Inicia">
+              <input disabled={!fees.nightEnabled} onChange={(e) => setFee({ nightStart: e.target.value })} type="time" value={fees.nightStart} />
+            </Field>
+            <Field label="Termina">
+              <input disabled={!fees.nightEnabled} onChange={(e) => setFee({ nightEnd: e.target.value })} type="time" value={fees.nightEnd} />
+            </Field>
+            <Field label="Recargo adicional">
+              {numberInput(fees.nightSurchargePct, (nightSurchargePct) => setFee({ nightSurchargePct: Math.min(300, nightSurchargePct) }), '1', '%')}
+            </Field>
+          </div>
+          {fees.nightEnabled ? (
+            <p className="adm-hint">
+              {api.isNightTime(fees) ? 'Ahora mismo esta activa la tarifa nocturna.' : 'Ahora mismo se cobra la tarifa normal.'}
+            </p>
+          ) : null}
+        </section>
+
+        <div className="adm-save-bar">
+          <span>{feeDirty ? 'Tienes cambios sin guardar.' : `Ultima actualizacion: ${formatDateTime(serviceSettings.updatedAt)}`}</span>
+          <ActionButton disabled={!feeDirty || busy} onClick={() => setFeeForm(null)} variant="ghost">Descartar</ActionButton>
+          <ActionButton disabled={!feeDirty || busy} icon={CheckCircle2} onClick={() => void saveFees()} variant="primary">Guardar tarifas</ActionButton>
+        </div>
+      </div>
+
+      <aside className="adm-services-side">
+        <section className="adm-card">
+          <h3>Simulador</h3>
+          <Field label="Distancia del envio">
+            <div className="adm-range">
+              <input max={15} min={0} onChange={(e) => setPreviewKm(Number(e.target.value))} step={0.5} type="range" value={previewKm} />
+              <strong>{previewKm} km</strong>
+            </div>
+          </Field>
+          <div className="adm-sim-result">
+            <div>
+              <span>Diurno</span>
+              <strong>{formatCurrency(api.calcDeliveryFee(fees, previewKm, new Date(), false))}</strong>
+            </div>
+            <div className={fees.nightEnabled ? '' : 'adm-disabled'}>
+              <span>Nocturno</span>
+              <strong>{formatCurrency(api.calcDeliveryFee(fees, previewKm, new Date(), fees.nightEnabled))}</strong>
+            </div>
+          </div>
+          <table className="adm-table compact">
+            <thead>
+              <tr><th>Distancia</th><th className="num">Diurno</th><th className="num">Nocturno</th></tr>
+            </thead>
+            <tbody>
+              {previewRows.map((row) => (
+                <tr key={row.km}>
+                  <td>{row.km} km</td>
+                  <td className="num">{formatCurrency(row.day)}</td>
+                  <td className="num">{fees.nightEnabled ? formatCurrency(row.night) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="adm-hint">Los cambios aplican solo a pedidos nuevos; los pedidos ya creados conservan su costo.</p>
+        </section>
+      </aside>
+    </div>
+  );
+
   const header = sectionTitles[section];
 
   return (
@@ -833,6 +961,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
           {section === 'stores' ? renderStores() : null}
           {section === 'users' ? renderUsers() : null}
           {section === 'deliveries' ? renderDeliveries() : null}
+          {section === 'services' ? renderServices() : null}
         </div>
       </main>
 
@@ -948,7 +1077,6 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
                   <Field label="Telefono"><input onChange={(e) => set({ phone: e.target.value })} value={d.phone} /></Field>
                   <Field label="Horario"><input onChange={(e) => set({ schedule: e.target.value })} value={d.schedule} /></Field>
                   <Field label="Tiempo de entrega"><input onChange={(e) => set({ deliveryMinutes: e.target.value })} value={d.deliveryMinutes} /></Field>
-                  <Field label="Costo de envio ($)"><input min={0} onChange={(e) => set({ deliveryFee: Number(e.target.value) })} step="0.1" type="number" value={d.deliveryFee} /></Field>
                   <Field label="Distancia (km)"><input min={0} onChange={(e) => set({ distanceKm: Number(e.target.value) })} step="0.1" type="number" value={d.distanceKm} /></Field>
                   <Field label="Rating"><input max={5} min={0} onChange={(e) => set({ rating: Number(e.target.value) })} step="0.1" type="number" value={d.rating} /></Field>
                   <Field label="Dueño de la tienda">
