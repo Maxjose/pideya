@@ -71,6 +71,8 @@ export interface Order {
   subtotal: number;
   deliveryFee: number;
   courierReward: number;
+  storeCommission: number;
+  courierCommission: number;
   createdAt: string;
   updatedAt?: string;
   distanceKm: number;
@@ -111,6 +113,10 @@ export interface ServiceSettings {
   nightEnd: string;
   nightSurchargePct: number;
   timezone: string;
+  storeCommissionEnabled: boolean;
+  storeCommissionPct: number;
+  courierCommissionEnabled: boolean;
+  courierCommissionPct: number;
   updatedAt?: string;
 }
 

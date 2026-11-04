@@ -8758,3 +8758,6 @@ button.adm-bar-row:hover span { color: var(--blue); }
 .pm-intro { color: var(--muted); margin: 0 0 12px; }
 .adm-modal.fixed-height { height: min(720px, calc(100vh - 48px)); }
 .adm-modal.fixed-height .adm-modal-body { flex: 1; }
+.adm-kpis.three { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.adm-sim-list { margin-top: 14px; }
+.adm-field input:disabled { background: #f8fafc; color: var(--muted); }

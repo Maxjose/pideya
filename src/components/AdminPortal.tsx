@@ -10,6 +10,7 @@ import {
   Package,
   PackageCheck,
   Pencil,
+  Percent,
   Plus,
   RefreshCw,
   Search,
@@ -41,7 +42,7 @@ interface AdminPortalProps {
   onLogout: () => void;
 }
 
-type Section = 'overview' | 'orders' | 'stores' | 'users' | 'deliveries' | 'services';
+type Section = 'overview' | 'orders' | 'stores' | 'users' | 'deliveries' | 'services' | 'commissions';
 
 const roleLabels: Record<Role, string> = {
   client: 'Cliente',
@@ -177,6 +178,8 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
   const [storeTab, setStoreTab] = useState<'info' | 'payments'>('info');
   const [feeForm, setFeeForm] = useState<ServiceSettings | null>(null);
   const [previewKm, setPreviewKm] = useState(3);
+  const [commForm, setCommForm] = useState<ServiceSettings | null>(null);
+  const [previewOrder, setPreviewOrder] = useState(20);
   const [productsStoreId, setProductsStoreId] = useState<string | null>(null);
   const [productQuery, setProductQuery] = useState('');
   const [userForm, setUserForm] = useState<UserForm | null>(null);
@@ -369,6 +372,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
     { id: 'users', label: 'Usuarios', icon: UsersRound },
     { id: 'deliveries', label: 'Repartidores', icon: Bike },
     { id: 'services', label: 'Servicios', icon: Settings2 },
+    { id: 'commissions', label: 'Comisiones', icon: Percent },
   ];
 
   const sectionTitles: Record<Section, { title: string; subtitle: string; action?: ReactNode }> = {
@@ -400,6 +404,10 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
           Nuevo repartidor
         </ActionButton>
       ),
+    },
+    commissions: {
+      title: 'Comisiones',
+      subtitle: 'Lo que la aplicacion retiene de cada pedido a negocios y repartidores.',
     },
     services: {
       title: 'Servicios',
@@ -909,6 +917,171 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
     </div>
   );
 
+  const comm = commForm ?? serviceSettings;
+  const setComm = (patch: Partial<ServiceSettings>) => setCommForm({ ...comm, ...patch });
+  const commDirty = commForm !== null && JSON.stringify(commForm) !== JSON.stringify(serviceSettings);
+  const saveComm = async () => {
+    if (!commForm) return;
+    const ok = await run(() => api.saveServiceSettings(commForm), 'Comisiones guardadas. Se aplican a los pedidos nuevos.');
+    if (ok) setCommForm(null);
+  };
+  const commTotals = useMemo(() => {
+    const delivered = orders.filter((order) => order.status === 'delivered');
+    const store = delivered.reduce((t, o) => t + o.storeCommission, 0);
+    const courier = delivered.reduce((t, o) => t + o.courierCommission, 0);
+    const pending = orders
+      .filter((order) => activeStatuses.includes(order.status))
+      .reduce((t, o) => t + o.storeCommission + o.courierCommission, 0);
+    const byStore = stores
+      .map((st) => ({
+        store: st,
+        amount: delivered.filter((o) => o.storeId === st.id).reduce((t, o) => t + o.storeCommission, 0),
+      }))
+      .filter((row) => row.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+    const byCourier = deliveries
+      .map((d) => ({
+        delivery: d,
+        amount: delivered.filter((o) => o.assignedDeliveryId === d.id).reduce((t, o) => t + o.courierCommission, 0),
+      }))
+      .filter((row) => row.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+    return { store, courier, total: store + courier, pending, byStore, byCourier };
+  }, [deliveries, orders, stores]);
+
+  const simFee = api.calcDeliveryFee(serviceSettings, previewKm);
+  const simStoreComm = comm.storeCommissionEnabled ? Number(((previewOrder * comm.storeCommissionPct) / 100).toFixed(2)) : 0;
+  const simCourierComm = comm.courierCommissionEnabled ? Number(((simFee * comm.courierCommissionPct) / 100).toFixed(2)) : 0;
+
+  const commissionCard = (
+    kind: 'store' | 'courier',
+    title: string,
+    description: string,
+    base: string,
+  ) => {
+    const enabled = kind === 'store' ? comm.storeCommissionEnabled : comm.courierCommissionEnabled;
+    const pct = kind === 'store' ? comm.storeCommissionPct : comm.courierCommissionPct;
+    return (
+      <section className="adm-card">
+        <div className="adm-card-head">
+          <div>
+            <h3>{title}</h3>
+            <p className="adm-card-desc">{description}</p>
+          </div>
+          <Toggle
+            checked={enabled}
+            label={`Activar ${title.toLowerCase()}`}
+            onChange={() => setComm(kind === 'store' ? { storeCommissionEnabled: !enabled } : { courierCommissionEnabled: !enabled })}
+          />
+        </div>
+        <div className={`adm-form-grid ${enabled ? '' : 'adm-disabled'}`.trim()}>
+          <Field label="Porcentaje de comision">
+            <div className="adm-input-suffix">
+              <input
+                disabled={!enabled}
+                max={100}
+                min={0}
+                onChange={(e) => {
+                  const value = Math.min(100, Math.max(0, Number(e.target.value)));
+                  setComm(kind === 'store' ? { storeCommissionPct: value } : { courierCommissionPct: value });
+                }}
+                step="0.5"
+                type="number"
+                value={pct}
+              />
+              <span>%</span>
+            </div>
+          </Field>
+          <Field label="Se calcula sobre">
+            <input disabled readOnly value={base} />
+          </Field>
+        </div>
+      </section>
+    );
+  };
+
+  const renderCommissions = () => (
+    <>
+      <div className="adm-kpis three">
+        <Kpi icon={CircleDollarSign} label="Comisiones ganadas" tone="green" value={formatCurrency(commTotals.total)} detail="Pedidos entregados" />
+        <Kpi icon={Store} label="De negocios" tone="blue" value={formatCurrency(commTotals.store)} />
+        <Kpi icon={Bike} label="De repartidores" tone="amber" value={formatCurrency(commTotals.courier)} />
+        <Kpi icon={ClipboardList} label="Por cobrar" tone="ink" value={formatCurrency(commTotals.pending)} detail="Pedidos en curso" />
+      </div>
+
+      <div className="adm-services">
+        <div className="adm-services-main">
+          {commissionCard('store', 'Comision a negocios', 'Porcentaje que la app retiene de la venta de productos de cada pedido.', 'Subtotal de productos')}
+          {commissionCard('courier', 'Comision a repartidores', 'Porcentaje que la app retiene del costo de envio; el resto es la ganancia del repartidor.', 'Costo de envio')}
+
+          <div className="adm-save-bar">
+            <span>{commDirty ? 'Tienes cambios sin guardar.' : `Ultima actualizacion: ${formatDateTime(serviceSettings.updatedAt)}`}</span>
+            <ActionButton disabled={!commDirty || busy} onClick={() => setCommForm(null)} variant="ghost">Descartar</ActionButton>
+            <ActionButton disabled={!commDirty || busy} icon={CheckCircle2} onClick={() => void saveComm()} variant="primary">Guardar comisiones</ActionButton>
+          </div>
+
+          <div className="adm-columns">
+            <section className="adm-card">
+              <h3>Comisiones por negocio</h3>
+              {commTotals.byStore.length ? (
+                <table className="adm-table compact">
+                  <tbody>
+                    {commTotals.byStore.map((row) => (
+                      <tr key={row.store.id}><td>{row.store.name}</td><td className="num">{formatCurrency(row.amount)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="adm-muted">Aun no hay comisiones de negocios.</p>
+              )}
+            </section>
+            <section className="adm-card">
+              <h3>Comisiones por repartidor</h3>
+              {commTotals.byCourier.length ? (
+                <table className="adm-table compact">
+                  <tbody>
+                    {commTotals.byCourier.map((row) => (
+                      <tr key={row.delivery.id}><td>{row.delivery.name}</td><td className="num">{formatCurrency(row.amount)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="adm-muted">Aun no hay comisiones de repartidores.</p>
+              )}
+            </section>
+          </div>
+        </div>
+
+        <aside className="adm-services-side">
+          <section className="adm-card">
+            <h3>Simulador de pedido</h3>
+            <div className="adm-form-grid">
+              <Field label="Productos">
+                <div className="adm-input-suffix">
+                  <input min={0} onChange={(e) => setPreviewOrder(Math.max(0, Number(e.target.value)))} step="1" type="number" value={previewOrder} />
+                  <span>$</span>
+                </div>
+              </Field>
+              <Field label="Distancia">
+                <div className="adm-input-suffix">
+                  <input min={0} onChange={(e) => setPreviewKm(Math.max(0, Number(e.target.value)))} step="0.5" type="number" value={previewKm} />
+                  <span>km</span>
+                </div>
+              </Field>
+            </div>
+            <ul className="adm-items adm-sim-list">
+              <li><span>Cliente paga</span><strong>{formatCurrency(previewOrder + simFee)}</strong></li>
+              <li><span>Negocio recibe</span><strong>{formatCurrency(previewOrder - simStoreComm)}</strong></li>
+              <li><span>Repartidor recibe</span><strong>{formatCurrency(simFee - simCourierComm)}</strong></li>
+              <li className="total"><span>Aplicacion gana</span><strong>{formatCurrency(simStoreComm + simCourierComm)}</strong></li>
+            </ul>
+            <p className="adm-hint">El envio usa las tarifas de Servicios. Los cambios aplican solo a pedidos nuevos.</p>
+          </section>
+        </aside>
+      </div>
+    </>
+  );
+
   const header = sectionTitles[section];
 
   return (
@@ -966,6 +1139,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
           {section === 'users' ? renderUsers() : null}
           {section === 'deliveries' ? renderDeliveries() : null}
           {section === 'services' ? renderServices() : null}
+          {section === 'commissions' ? renderCommissions() : null}
         </div>
       </main>
 
@@ -1004,6 +1178,8 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
                 <li><span>Envio</span><strong>{formatCurrency(orderDetail.deliveryFee)}</strong></li>
                 <li className="total"><span>Total</span><strong>{formatCurrency(orderDetail.subtotal + orderDetail.deliveryFee)}</strong></li>
                 <li><span>Pago al repartidor</span><strong>{formatCurrency(orderDetail.courierReward)}</strong></li>
+                <li><span>Comision negocio</span><strong>{formatCurrency(orderDetail.storeCommission)}</strong></li>
+                <li><span>Comision repartidor</span><strong>{formatCurrency(orderDetail.courierCommission)}</strong></li>
               </ul>
 
               <h3>Gestion</h3>

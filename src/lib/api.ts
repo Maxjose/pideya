@@ -68,6 +68,8 @@ export const mapOrder = (r: Row): Order => ({
   subtotal: num(r.subtotal),
   deliveryFee: num(r.delivery_fee),
   courierReward: num(r.courier_reward),
+  storeCommission: num(r.store_commission),
+  courierCommission: num(r.courier_commission),
   createdAt: r.created_at,
   updatedAt: r.updated_at,
   distanceKm: num(r.distance_km),
@@ -302,6 +304,10 @@ export const defaultServiceSettings: ServiceSettings = {
   nightEnd: '06:00',
   nightSurchargePct: 20,
   timezone: 'America/Caracas',
+  storeCommissionEnabled: false,
+  storeCommissionPct: 10,
+  courierCommissionEnabled: false,
+  courierCommissionPct: 10,
 };
 
 export async function fetchServiceSettings(): Promise<ServiceSettings> {
@@ -318,6 +324,10 @@ export async function fetchServiceSettings(): Promise<ServiceSettings> {
     nightEnd: String(data.night_end).slice(0, 5),
     nightSurchargePct: num(data.night_surcharge_pct),
     timezone: data.timezone,
+    storeCommissionEnabled: data.store_commission_enabled,
+    storeCommissionPct: num(data.store_commission_pct),
+    courierCommissionEnabled: data.courier_commission_enabled,
+    courierCommissionPct: num(data.courier_commission_pct),
     updatedAt: data.updated_at,
   };
 }
@@ -334,6 +344,10 @@ export async function saveServiceSettings(settings: ServiceSettings) {
       night_start: settings.nightStart,
       night_end: settings.nightEnd,
       night_surcharge_pct: settings.nightSurchargePct,
+      store_commission_enabled: settings.storeCommissionEnabled,
+      store_commission_pct: settings.storeCommissionPct,
+      courier_commission_enabled: settings.courierCommissionEnabled,
+      courier_commission_pct: settings.courierCommissionPct,
     })
     .eq('id', 1);
   fail(error);
