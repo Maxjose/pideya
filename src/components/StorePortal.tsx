@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import pideyaLogo from '../assets/pideya-logo.png';
 import { ActionButton, EmptyState, MetricCard, Panel, SafeImage, StatusPill } from './Shared';
+import type { OrderStatus as DeskOrderStatus } from '../types';
+import { statusLabels } from '../utils/format';
 import { PaymentMethodsEditor } from './PaymentMethodsEditor';
 import type { Order, OrderStatus, Product, Storefront } from '../types';
 import { formatCurrency, formatTime } from '../utils/format';
@@ -251,6 +253,307 @@ export function StorePortal({
     settings: { title: 'Ajustes de tienda', subtitle: 'Perfil, permisos y notificaciones.' },
   };
   const deskHeader = deskTitles[activeView];
+  const [deskQuery, setDeskQuery] = useState('');
+  const [deskStatus, setDeskStatus] = useState<'active' | 'all' | DeskOrderStatus>('active');
+  const [deskOrderId, setDeskOrderId] = useState<string | null>(null);
+  const activeOrderStatuses: DeskOrderStatus[] = ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'picked_up', 'in_transit'];
+  const dq = deskQuery.trim().toLowerCase();
+  const deskOrders = storeOrders.filter((order) => {
+    if (deskStatus === 'active' && !activeOrderStatuses.includes(order.status)) return false;
+    if (deskStatus !== 'all' && deskStatus !== 'active' && order.status !== deskStatus) return false;
+    return !dq || [order.id, order.customerName, order.customerPhone, order.address].some((v) => v.toLowerCase().includes(dq));
+  });
+  const deskProducts = storeProducts.filter(
+    (product) => !dq || [product.name, product.category, product.description].some((v) => v.toLowerCase().includes(dq)),
+  );
+  const deskOrderDetail = storeOrders.find((order) => order.id === deskOrderId) ?? null;
+  const fmtDate = (iso: string) =>
+    new Intl.DateTimeFormat('es-VE', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(iso));
+  const netForStore = (order: Order) => order.subtotal - (order.storeCommission ?? 0);
+  const deliveredOrders = storeOrders.filter((order) => order.status === 'delivered');
+  const todayOrders = storeOrders.filter((order) => new Date(order.createdAt).toDateString() === new Date().toDateString());
+  const isMainView = storeMainViews.includes(activeView);
+
+  const orderActions = (order: Order) => (
+    <div className="store-desk-actions" onClick={(event) => event.stopPropagation()}>
+      {order.status === 'pending' ? (
+        <>
+          <ActionButton icon={CheckCircle2} onClick={() => onOrderStatusChange(order.id, 'accepted')} variant="success">Confirmar</ActionButton>
+          <ActionButton icon={XCircle} onClick={() => onOrderStatusChange(order.id, 'cancelled')} variant="danger">Rechazar</ActionButton>
+        </>
+      ) : null}
+      {order.status === 'accepted' ? (
+        <ActionButton icon={PackageCheck} onClick={() => onOrderStatusChange(order.id, 'preparing')} variant="primary">Preparar</ActionButton>
+      ) : null}
+      {order.status === 'preparing' ? (
+        <ActionButton icon={CheckCircle2} onClick={() => onOrderStatusChange(order.id, 'ready')} variant="primary">Marcar listo</ActionButton>
+      ) : null}
+    </div>
+  );
+
+  const deskOrderTable = (list: Order[], withActions = true) =>
+    list.length ? (
+      <div className="adm-table-wrap">
+        <table className="adm-table">
+          <thead>
+            <tr>
+              <th>Pedido</th>
+              <th>Fecha</th>
+              <th>Cliente</th>
+              <th>Productos</th>
+              <th>Pago</th>
+              <th className="num">Total</th>
+              <th>Estado</th>
+              {withActions ? <th /> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((order) => (
+              <tr className="clickable" key={order.id} onClick={() => setDeskOrderId(order.id)}>
+                <td><strong>{order.id}</strong></td>
+                <td>{fmtDate(order.createdAt)}</td>
+                <td>
+                  {order.customerName}
+                  <small>{order.customerPhone}</small>
+                </td>
+                <td>
+                  {order.items.reduce((t, i) => t + i.quantity, 0)} items
+                  <small>{order.items.map((i) => i.name).join(', ')}</small>
+                </td>
+                <td>{order.paymentMethod}</td>
+                <td className="num">{formatCurrency(order.subtotal + order.deliveryFee)}</td>
+                <td><StatusPill status={order.status} /></td>
+                {withActions ? <td className="adm-actions">{orderActions(order)}</td> : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <EmptyState body="No hay pedidos que coincidan." title="Sin pedidos" />
+    );
+
+  const deskKpi = (label: string, value: string, detail: string, Icon: typeof Store, tone: string) => (
+    <article className={`adm-kpi ${tone}`}>
+      <div className="adm-kpi-icon"><Icon size={20} aria-hidden="true" /></div>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small>{detail}</small>
+      </div>
+    </article>
+  );
+
+  const deskSearch = (placeholder: string) => (
+    <label className="adm-search">
+      <Search size={17} aria-hidden="true" />
+      <input onChange={(event) => setDeskQuery(event.target.value)} placeholder={placeholder} value={deskQuery} />
+    </label>
+  );
+
+  const renderDeskView = () => {
+    if (activeView === 'dashboard') {
+      const attention = storeOrders.filter((order) => ['pending', 'accepted', 'preparing'].includes(order.status));
+      return (
+        <>
+          <div className="adm-kpis">
+            {deskKpi('Pedidos nuevos', String(dashboard.newOrders), 'Sin confirmar', Clock, dashboard.newOrders ? 'coral' : 'ink')}
+            {deskKpi('En preparacion', String(dashboard.preparing), 'Aceptados y en cocina', PackageCheck, 'amber')}
+            {deskKpi('Listos', String(dashboard.ready), 'Esperando repartidor', CheckCircle2, 'green')}
+            {deskKpi('Entregados', String(dashboard.completed), `${todayOrders.length} pedidos hoy`, ClipboardList, 'blue')}
+            {deskKpi('Ventas liquidadas', formatCurrency(deliveredOrders.reduce((t, o) => t + netForStore(o), 0)), 'Neto de pedidos entregados', WalletCards, 'green')}
+            {deskKpi('Por conciliar', formatCurrency(storeOrders.filter((o) => activeOrderStatuses.includes(o.status)).reduce((t, o) => t + netForStore(o), 0)), 'Pedidos en curso', CreditCard, 'amber')}
+            {deskKpi('Productos', String(storeProducts.length), `${storeProducts.filter((p) => !p.available).length} ocultos`, Tags, 'blue')}
+            {deskKpi('Stock bajo', String(lowStockProducts), '5 unidades o menos', PackageCheck, lowStockProducts ? 'coral' : 'ink')}
+          </div>
+          <div className="adm-columns">
+            <section className="adm-card flush">
+              <div className="adm-card-head pad">
+                <h3>Requieren atencion</h3>
+                <button className="adm-link" onClick={() => navigateStoreSection('orders')} type="button">Ver pedidos</button>
+              </div>
+              {attention.length ? (
+                <div className="adm-table-wrap">
+                  <table className="adm-table">
+                    <tbody>
+                      {attention.slice(0, 6).map((order) => (
+                        <tr className="clickable" key={order.id} onClick={() => setDeskOrderId(order.id)}>
+                          <td><strong>{order.id}</strong><small>{fmtDate(order.createdAt)}</small></td>
+                          <td>{order.customerName}<small>{order.items.length} productos</small></td>
+                          <td><StatusPill status={order.status} /></td>
+                          <td className="adm-actions">{orderActions(order)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="pad"><EmptyState body="No hay pedidos pendientes por atender." title="Todo al dia" /></div>
+              )}
+            </section>
+            <section className="adm-card">
+              <h3>Mi tienda</h3>
+              <div className="store-desk-info">
+                <SafeImage src={store.imageUrl} alt="" />
+                <dl className="adm-dl">
+                  <dt>Nombre</dt><dd>{store.name}</dd>
+                  <dt>Direccion</dt><dd>{store.address}</dd>
+                  <dt>Telefono</dt><dd>{store.phone || '—'}</dd>
+                  <dt>Horario</dt><dd>{store.schedule}</dd>
+                  <dt>Estado</dt><dd><span className={`adm-state ${store.open ? 'on' : 'off'}`}>{store.open ? 'Abierta' : 'Cerrada'}</span></dd>
+                </dl>
+              </div>
+            </section>
+          </div>
+          <section className="adm-card flush">
+            <div className="adm-card-head pad">
+              <h3>Ultimos pedidos</h3>
+              <button className="adm-link" onClick={() => navigateStoreSection('orders')} type="button">Ver todos</button>
+            </div>
+            {deskOrderTable(storeOrders.slice(0, 8), false)}
+          </section>
+        </>
+      );
+    }
+    if (activeView === 'orders') {
+      const counts = (status: 'active' | 'all' | DeskOrderStatus) =>
+        status === 'all' ? storeOrders.length : status === 'active' ? storeOrders.filter((o) => activeOrderStatuses.includes(o.status)).length : storeOrders.filter((o) => o.status === status).length;
+      return (
+        <>
+          <div className="adm-toolbar">
+            {deskSearch('Buscar por pedido, cliente, telefono o direccion')}
+            <div className="adm-segmented">
+              {(['active', 'pending', 'preparing', 'ready', 'delivered', 'cancelled', 'all'] as const).map((status) => (
+                <button className={deskStatus === status ? 'active' : ''} key={status} onClick={() => setDeskStatus(status)} type="button">
+                  {status === 'active' ? 'Activos' : status === 'all' ? 'Todos' : statusLabels[status]}
+                  <small>{counts(status)}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+          <section className="adm-card flush">{deskOrderTable(deskOrders)}</section>
+        </>
+      );
+    }
+    if (activeView === 'inventory') {
+      return (
+        <>
+          <div className="adm-toolbar">{deskSearch('Buscar producto o categoria')}</div>
+          <section className="adm-card flush">
+            {deskProducts.length ? (
+              <div className="adm-table-wrap">
+                <table className="adm-table">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th>Categoria</th>
+                      <th>Opciones</th>
+                      <th className="num">Precio</th>
+                      <th className="num">Stock</th>
+                      <th>Disponible</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deskProducts.map((product) => (
+                      <tr className={product.available ? '' : 'inactive'} key={product.id}>
+                        <td>
+                          <div className="adm-entity">
+                            <SafeImage src={product.imageUrl} alt="" />
+                            <div>
+                              <strong>{product.name}</strong>
+                              <small>{product.description}</small>
+                            </div>
+                          </div>
+                        </td>
+                        <td>{product.category}</td>
+                        <td><small>{product.options.join(', ') || '—'}</small></td>
+                        <td className="num">{formatCurrency(product.price)}</td>
+                        <td className="num">
+                          {product.stock <= 5 ? <span className="adm-state off">{product.stock}</span> : product.stock}
+                        </td>
+                        <td className="adm-actions">
+                          <button
+                            aria-label={`Disponibilidad de ${product.name}`}
+                            aria-pressed={product.available}
+                            className={`adm-toggle ${product.available ? 'on' : ''}`}
+                            onClick={() => {
+                              const { id, ...rest } = product;
+                              onUpdateProduct(id, { ...rest, available: !product.available });
+                            }}
+                            type="button"
+                          >
+                            <span />
+                          </button>
+                        </td>
+                        <td className="adm-actions">
+                          <button className="adm-icon-button" onClick={() => openEditProductSheet(product)} title="Editar" type="button">
+                            <Edit3 size={16} aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="pad"><EmptyState body="Agrega tu primer producto con el boton Nuevo producto." title="Sin productos" /></div>
+            )}
+          </section>
+        </>
+      );
+    }
+    // payments
+    const commissionTotal = storeOrders.filter((o) => o.status !== 'cancelled').reduce((t, o) => t + (o.storeCommission ?? 0), 0);
+    return (
+      <>
+        <div className="adm-kpis">
+          {deskKpi('Ventas liquidadas', formatCurrency(deliveredOrders.reduce((t, o) => t + netForStore(o), 0)), `${deliveredOrders.length} pedidos entregados`, WalletCards, 'green')}
+          {deskKpi('Por conciliar', formatCurrency(storeOrders.filter((o) => activeOrderStatuses.includes(o.status)).reduce((t, o) => t + netForStore(o), 0)), 'Pedidos en curso', Clock, 'amber')}
+          {deskKpi('Ventas brutas', formatCurrency(storeOrders.filter((o) => o.status !== 'cancelled').reduce((t, o) => t + o.subtotal, 0)), 'Productos vendidos', ClipboardList, 'blue')}
+          {deskKpi('Comision PideYa', formatCurrency(commissionTotal), 'Retenida por la app', CreditCard, 'ink')}
+        </div>
+        <section className="adm-card flush">
+          <div className="adm-card-head pad">
+            <h3>Movimientos</h3>
+            <button className="adm-link" onClick={() => navigateStoreSection('paymentData')} type="button">Metodos de pago</button>
+          </div>
+          {storeOrders.length ? (
+            <div className="adm-table-wrap">
+              <table className="adm-table">
+                <thead>
+                  <tr>
+                    <th>Pedido</th>
+                    <th>Fecha</th>
+                    <th>Metodo</th>
+                    <th className="num">Productos</th>
+                    <th className="num">Comision</th>
+                    <th className="num">Neto</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {storeOrders.map((order) => (
+                    <tr className="clickable" key={order.id} onClick={() => setDeskOrderId(order.id)}>
+                      <td><strong>{order.id}</strong></td>
+                      <td>{fmtDate(order.createdAt)}</td>
+                      <td>{order.paymentMethod}</td>
+                      <td className="num">{formatCurrency(order.subtotal)}</td>
+                      <td className="num">{formatCurrency(order.storeCommission ?? 0)}</td>
+                      <td className="num"><strong>{formatCurrency(order.status === 'cancelled' ? 0 : netForStore(order))}</strong></td>
+                      <td><StatusPill status={order.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="pad"><EmptyState body="Aqui veras los cobros de tus pedidos." title="Sin movimientos" /></div>
+          )}
+        </section>
+      </>
+    );
+  };
 
   return (
     <div className="store-shell">
@@ -338,6 +641,7 @@ export function StorePortal({
     </header>
 
     <div className="store-desk-content">
+    {isMainView ? <div className="store-desk-only store-desk-views">{renderDeskView()}</div> : null}
     <header className="store-page-header" aria-label="Tienda actual">
       <div className="store-page-brand">
         <img src={pideyaLogo} alt="PideYa" />
@@ -351,7 +655,7 @@ export function StorePortal({
       </span>
     </header>
 
-    <div className="role-grid store-grid">
+    <div className={`role-grid store-grid ${isMainView ? 'desk-hide' : 'desk-config'}`}>
       {activeView === 'dashboard' ? (
       <Panel className="store-command" id="store-dashboard-section">
         <div className="workspace-title">
@@ -896,6 +1200,44 @@ export function StorePortal({
             </button>
           </div>
         </section>
+      </div>
+    ) : null}
+    {deskOrderDetail ? (
+      <div className="adm-drawer-backdrop store-desk-only" role="presentation" onClick={() => setDeskOrderId(null)}>
+        <aside className="adm-drawer" role="dialog" aria-label={`Pedido ${deskOrderDetail.id}`} onClick={(event) => event.stopPropagation()}>
+          <header>
+            <div>
+              <h2>{deskOrderDetail.id}</h2>
+              <small>{fmtDate(deskOrderDetail.createdAt)}</small>
+            </div>
+            <StatusPill status={deskOrderDetail.status} />
+            <button aria-label="Cerrar" className="adm-icon-button" onClick={() => setDeskOrderId(null)} type="button">
+              <XCircle size={18} aria-hidden="true" />
+            </button>
+          </header>
+          <div className="adm-drawer-body">
+            <dl className="adm-dl">
+              <dt>Cliente</dt><dd>{deskOrderDetail.customerName}</dd>
+              <dt>Telefono</dt><dd>{deskOrderDetail.customerPhone}</dd>
+              <dt>Direccion</dt><dd>{deskOrderDetail.address}</dd>
+              <dt>Pago</dt><dd>{deskOrderDetail.paymentMethod}</dd>
+              {deskOrderDetail.notes ? (<><dt>Notas</dt><dd>{deskOrderDetail.notes}</dd></>) : null}
+            </dl>
+            <h3>Productos</h3>
+            <ul className="adm-items">
+              {deskOrderDetail.items.map((item, index) => (
+                <li key={`${item.productId}-${index}`}>
+                  <span>{item.quantity}× {item.name}{item.option ? <small> · {item.option}</small> : null}</span>
+                  <strong>{formatCurrency(item.quantity * item.price)}</strong>
+                </li>
+              ))}
+              <li><span>Subtotal</span><strong>{formatCurrency(deskOrderDetail.subtotal)}</strong></li>
+              <li><span>Comision PideYa</span><strong>- {formatCurrency(deskOrderDetail.storeCommission ?? 0)}</strong></li>
+              <li className="total"><span>Recibes</span><strong>{formatCurrency(netForStore(deskOrderDetail))}</strong></li>
+            </ul>
+            {orderActions(deskOrderDetail)}
+          </div>
+        </aside>
       </div>
     ) : null}
     </div>

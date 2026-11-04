@@ -8807,3 +8807,25 @@ button.adm-bar-row:hover span { color: var(--blue); }
   .store-shell .store-info > button, .store-shell .store-info > .action-button { grid-column: 3; grid-row: 1 / span 4; }
   .store-shell .order-card-header > div { display: grid; gap: 2px; }
 }
+@media (min-width: 1024px) {
+  .store-shell .role-grid.desk-hide { display: none !important; }
+  .store-shell .store-desk-views { display: grid !important; gap: 18px; }
+  .store-shell .adm-drawer-backdrop.store-desk-only { display: block !important; }
+  .store-shell .adm-card-head.pad { padding: 16px 18px 12px; margin: 0; }
+  .store-shell .adm-card-head.pad h3 { margin: 0; }
+  .store-shell .pad { padding: 18px; }
+  .store-desk-actions { display: inline-flex; gap: 6px; justify-content: flex-end; }
+  .store-desk-actions .action-button { min-height: 34px; padding: 0 12px; font-size: 0.82rem; }
+  .store-desk-info { align-items: start; display: grid; gap: 16px; grid-template-columns: 140px 1fr; }
+  .store-desk-info img { aspect-ratio: 1; border-radius: 10px; object-fit: cover; width: 140px; }
+  /* Secciones de configuración con el mismo aspecto de tarjeta del admin */
+  .store-shell .role-grid.desk-config > .panel {
+    background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: none; padding: 18px;
+  }
+  .store-shell .role-grid.desk-config .panel-heading h2 { font-size: 1rem; }
+  .store-shell .role-grid.desk-config .store-payment-summary span { background: #fff; border-radius: 12px; }
+}
+@media (min-width: 1024px) {
+  .store-shell .adm-table td:first-child, .store-shell .adm-table td:nth-child(2) { white-space: nowrap; }
+  .store-shell .adm-table td small { white-space: nowrap; }
+}
