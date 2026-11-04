@@ -25,6 +25,7 @@ import {
 import pideyaLogo from '../assets/pideya-logo.png';
 import * as api from '../lib/api';
 import { ActionButton, EmptyState, InitialAvatar, SafeImage, StatusPill } from './Shared';
+import { PaymentMethodsEditor } from './PaymentMethodsEditor';
 import type { ServiceSettings, AppUser, DeliveryAgent, Order, OrderStatus, Product, Role, Storefront } from '../types';
 import { formatCurrency, statusLabels } from '../utils/format';
 
@@ -171,6 +172,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
 
   // formularios
   const [storeForm, setStoreForm] = useState<{ id?: string; data: api.StoreInput } | null>(null);
+  const [storeTab, setStoreTab] = useState<'info' | 'payments'>('info');
   const [feeForm, setFeeForm] = useState<ServiceSettings | null>(null);
   const [previewKm, setPreviewKm] = useState(3);
   const [productsStoreId, setProductsStoreId] = useState<string | null>(null);
@@ -374,7 +376,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
       title: 'Tiendas',
       subtitle: `${stores.length} tiendas · ${metrics.openStores} abiertas`,
       action: (
-        <ActionButton icon={Plus} onClick={() => setStoreForm({ data: { ...emptyStore } })} variant="primary">
+        <ActionButton icon={Plus} onClick={() => (setStoreTab('info'), setStoreForm({ data: { ...emptyStore } }))} variant="primary">
           Nueva tienda
         </ActionButton>
       ),
@@ -573,7 +575,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
                       <button className="adm-icon-button" onClick={() => { setProductsStoreId(store.id); setProductQuery(''); }} title="Ver productos" type="button">
                         <Package size={16} aria-hidden="true" />
                       </button>
-                      <button className="adm-icon-button" onClick={() => setStoreForm({ id: store.id, data: { ...store } })} title="Editar" type="button">
+                      <button className="adm-icon-button" onClick={() => (setStoreTab('info'), setStoreForm({ id: store.id, data: { ...store } }))} title="Editar" type="button">
                         <Pencil size={16} aria-hidden="true" />
                       </button>
                       <button
@@ -1057,14 +1059,33 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
         <Modal
           footer={
             <>
-              <ActionButton onClick={() => setStoreForm(null)} variant="ghost">Cancelar</ActionButton>
-              <ActionButton disabled={busy} icon={CheckCircle2} onClick={() => void submitStore()} variant="primary">Guardar</ActionButton>
+              <ActionButton onClick={() => setStoreForm(null)} variant="ghost">{storeTab === 'info' ? 'Cancelar' : 'Cerrar'}</ActionButton>
+              {storeTab === 'info' ? (
+                <ActionButton disabled={busy} icon={CheckCircle2} onClick={() => void submitStore()} variant="primary">Guardar</ActionButton>
+              ) : null}
             </>
           }
           onClose={() => setStoreForm(null)}
           title={storeForm.id ? 'Editar tienda' : 'Nueva tienda'}
         >
-          <div className="adm-form-grid">
+          <div className="adm-tabs" role="tablist">
+            <button aria-selected={storeTab === 'info'} className={storeTab === 'info' ? 'active' : ''} onClick={() => setStoreTab('info')} role="tab" type="button">
+              Información
+            </button>
+            <button
+              aria-selected={storeTab === 'payments'}
+              className={storeTab === 'payments' ? 'active' : ''}
+              disabled={!storeForm.id}
+              onClick={() => setStoreTab('payments')}
+              role="tab"
+              title={storeForm.id ? undefined : 'Guarda la tienda primero'}
+              type="button"
+            >
+              Métodos de pago
+            </button>
+          </div>
+          {storeTab === 'payments' && storeForm.id ? <PaymentMethodsEditor readOnly storeId={storeForm.id} /> : null}
+          <div className="adm-form-grid" hidden={storeTab !== 'info'}>
             {(() => {
               const d = storeForm.data;
               const set = (patch: Partial<api.StoreInput>) => setStoreForm({ ...storeForm, data: { ...d, ...patch } });

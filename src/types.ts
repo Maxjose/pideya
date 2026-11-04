@@ -113,3 +113,13 @@ export interface ServiceSettings {
   timezone: string;
   updatedAt?: string;
 }
+
+export type PaymentMethodType = 'pago_movil' | 'binance' | 'efectivo';
+
+export interface StorePaymentMethod {
+  storeId: string;
+  type: PaymentMethodType;
+  enabled: boolean;
+  details: Record<string, string>;
+  updatedAt?: string;
+}

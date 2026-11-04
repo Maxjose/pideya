@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { ServiceSettings, AppUser, DeliveryAgent, Order, OrderStatus, PaymentMethod, Product, Role, Storefront } from '../types';
+import type { StorePaymentMethod, PaymentMethodType, ServiceSettings, AppUser, DeliveryAgent, Order, OrderStatus, PaymentMethod, Product, Role, Storefront } from '../types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = Record<string, any>;
@@ -360,3 +360,31 @@ export function calcDeliveryFee(settings: ServiceSettings, distanceKm: number, a
 
 /** Distancia que usa el servidor para cobrar (distancia de la tienda + margen de entrega). */
 export const deliveryDistance = (storeDistanceKm: number) => Number((storeDistanceKm + 0.8).toFixed(1));
+
+/* ===== Métodos de pago por tienda ===== */
+export async function fetchStorePaymentMethods(storeId: string): Promise<StorePaymentMethod[]> {
+  const { data, error } = await supabase.from('store_payment_methods').select('*').eq('store_id', storeId);
+  fail(error);
+  return (data ?? []).map((r) => ({
+    storeId: r.store_id,
+    type: r.type as PaymentMethodType,
+    enabled: r.enabled,
+    details: (r.details ?? {}) as Record<string, string>,
+    updatedAt: r.updated_at,
+  }));
+}
+
+export async function saveStorePaymentMethod(method: StorePaymentMethod) {
+  const { error } = await supabase
+    .from('store_payment_methods')
+    .upsert(
+      { store_id: method.storeId, type: method.type, enabled: method.enabled, details: method.details },
+      { onConflict: 'store_id,type' },
+    );
+  fail(error);
+}
+
+export async function deleteStorePaymentMethod(storeId: string, type: PaymentMethodType) {
+  const { error } = await supabase.from('store_payment_methods').delete().eq('store_id', storeId).eq('type', type);
+  fail(error);
+}

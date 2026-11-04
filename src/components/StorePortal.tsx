@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import pideyaLogo from '../assets/pideya-logo.png';
 import { ActionButton, EmptyState, MetricCard, Panel, SafeImage, StatusPill } from './Shared';
+import { PaymentMethodsEditor } from './PaymentMethodsEditor';
 import type { Order, OrderStatus, Product, Storefront } from '../types';
 import { formatCurrency, formatTime } from '../utils/format';
 
@@ -181,7 +182,7 @@ export function StorePortal({
 
   const menuOptions = [
     { label: 'Ubicacion de la tienda', detail: store.address, icon: MapPin, view: 'location' as const },
-    { label: 'Datos de pago', detail: 'Cuenta bancaria y pago movil', icon: CreditCard, view: 'paymentData' as const },
+    { label: 'Métodos de pago', detail: 'Pago móvil, Binance y efectivo', icon: CreditCard, view: 'paymentData' as const },
     { label: 'Horario y disponibilidad', detail: store.schedule, icon: Clock, view: 'schedule' as const },
     { label: 'Promociones', detail: 'Cupones, descuentos y combos', icon: Tags, view: 'promotions' as const },
     { label: 'Ajustes de tienda', detail: 'Perfil, permisos y notificaciones', icon: Settings, view: 'settings' as const },
@@ -384,7 +385,7 @@ export function StorePortal({
         </div>
         <div className="store-payment-actions">
           <ActionButton icon={WalletCards} variant="secondary">Ver movimientos</ActionButton>
-          <ActionButton icon={CreditCard} variant="ghost">Datos de pago</ActionButton>
+          <ActionButton icon={CreditCard} onClick={() => navigateStoreSection('paymentData')} variant="ghost">Métodos de pago</ActionButton>
         </div>
       </Panel>
       ) : null}
@@ -460,21 +461,9 @@ export function StorePortal({
       ) : null}
 
       {activeView === 'paymentData' ? (
-        <Panel className="store-command" title="Datos de pago">
-          <div className="store-payment-summary">
-            <span>
-              <strong>Pago movil</strong>
-              Activo para conciliacion
-            </span>
-            <span>
-              <strong>Banco local</strong>
-              Cuenta principal
-            </span>
-            <span>
-              <strong>{formatCurrency(pendingPayout)}</strong>
-              Pendiente por liquidar
-            </span>
-          </div>
+        <Panel className="store-command" title="Métodos de pago">
+          <p className="pm-intro">Activa los métodos con los que tus clientes pueden pagarte y registra los datos que verán al pagar.</p>
+          <PaymentMethodsEditor storeId={store.id} />
         </Panel>
       ) : null}
 

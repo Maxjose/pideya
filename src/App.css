@@ -8715,3 +8715,44 @@ button.adm-bar-row:hover span { color: var(--blue); }
 .adm-table.compact td, .adm-table.compact th { padding: 8px 10px; }
 .adm-services-side .adm-hint { margin-top: 12px; }
 @media (max-width: 1180px) { .adm-services { grid-template-columns: 1fr; } .adm-services-side { position: static; } }
+
+/* Métodos de pago por negocio */
+.pm-list { display: grid; gap: 12px; }
+.pm-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 14px; padding: 14px; }
+.pm-card.on { border-color: rgba(18, 104, 243, 0.35); box-shadow: 0 0 0 3px rgba(18, 104, 243, 0.06); }
+.pm-card header { align-items: center; display: flex; gap: 12px; }
+.pm-card header > div { flex: 1; min-width: 0; }
+.pm-card header strong { display: block; }
+.pm-card header small { color: var(--muted); font-size: 0.8rem; }
+.pm-icon { align-items: center; background: var(--surface-soft); border-radius: 10px; color: var(--blue); display: inline-flex; flex-shrink: 0; height: 40px; justify-content: center; width: 40px; }
+.pm-toggle { background: #d5dce6; border: 0; border-radius: 999px; cursor: pointer; flex-shrink: 0; height: 26px; padding: 3px; transition: background 0.2s; width: 46px; }
+.pm-toggle span { background: #fff; border-radius: 999px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); display: block; height: 20px; transition: transform 0.2s; width: 20px; }
+.pm-toggle.on { background: var(--green); }
+.pm-toggle.on span { transform: translateX(20px); }
+.pm-fields { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pm-fields label { display: grid; gap: 5px; }
+.pm-fields label.wide { grid-column: 1 / -1; }
+.pm-fields span { color: var(--muted); font-size: 0.78rem; font-weight: 850; }
+.pm-fields input, .pm-fields textarea {
+  background: #fff; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); font: inherit; min-height: 40px; padding: 8px 12px;
+}
+.pm-fields input:focus, .pm-fields textarea:focus { border-color: var(--blue); outline: 3px solid rgba(18, 104, 243, 0.12); }
+.pm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.pm-details { display: grid; gap: 8px 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.pm-details dt { color: var(--muted); font-size: 0.76rem; font-weight: 850; }
+.pm-details dd { margin: 2px 0 0; word-break: break-word; }
+.pm-state { border-radius: 999px; font-size: 0.74rem; font-weight: 900; padding: 4px 9px; }
+.pm-state.on { background: var(--green-soft); color: var(--green); }
+.pm-state.off { background: #eef1f5; color: var(--muted); }
+.pm-message { border-radius: 8px; font-size: 0.86rem; font-weight: 750; margin: 0; padding: 10px 12px; }
+.pm-message.ok { background: var(--green-soft); color: var(--green); }
+.pm-message.error { background: var(--coral-soft); color: var(--coral); }
+.pm-empty, .pm-loading { align-items: center; color: var(--muted); display: flex; gap: 8px; margin: 0; padding: 16px 0; }
+.pm-list.compact .pm-fields, .pm-list.compact .pm-details { grid-template-columns: 1fr; }
+@media (max-width: 560px) { .pm-fields, .pm-details { grid-template-columns: 1fr; } }
+/* Pestañas del modal de tienda (admin) */
+.adm-tabs { border-bottom: 1px solid var(--line); display: flex; gap: 4px; margin: -20px -20px 18px; padding: 0 20px; }
+.adm-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; font: inherit; font-weight: 850; padding: 12px 14px; }
+.adm-tabs button.active { border-bottom-color: var(--blue); color: var(--blue); }
+.adm-tabs button:disabled { cursor: not-allowed; opacity: 0.5; }
+.pm-intro { color: var(--muted); margin: 0 0 12px; }
