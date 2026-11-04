@@ -42,7 +42,7 @@ type Section = 'overview' | 'orders' | 'stores' | 'users' | 'deliveries';
 
 const roleLabels: Record<Role, string> = {
   client: 'Cliente',
-  store: 'Tienda',
+  store: 'Dueño',
   delivery: 'Delivery',
   admin: 'Admin',
 };
@@ -527,7 +527,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
               <thead>
                 <tr>
                   <th>Tienda</th>
-                  <th>Responsable</th>
+                  <th>Dueño</th>
                   <th>Zona</th>
                   <th className="num">Envio</th>
                   <th className="num">Productos</th>
@@ -602,7 +602,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
         <div className="adm-segmented">
           {(['all', 'client', 'store', 'delivery', 'admin'] as const).map((role) => (
             <button className={roleFilter === role ? 'active' : ''} key={role} onClick={() => setRoleFilter(role)} type="button">
-              {role === 'all' ? 'Todos' : roleLabels[role]}
+              {role === 'all' ? 'Todos' : role === 'store' ? 'Dueños' : roleLabels[role]}
               <small>{role === 'all' ? users.length : users.filter((user) => user.role === role).length}</small>
             </button>
           ))}
@@ -951,7 +951,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
                   <Field label="Costo de envio ($)"><input min={0} onChange={(e) => set({ deliveryFee: Number(e.target.value) })} step="0.1" type="number" value={d.deliveryFee} /></Field>
                   <Field label="Distancia (km)"><input min={0} onChange={(e) => set({ distanceKm: Number(e.target.value) })} step="0.1" type="number" value={d.distanceKm} /></Field>
                   <Field label="Rating"><input max={5} min={0} onChange={(e) => set({ rating: Number(e.target.value) })} step="0.1" type="number" value={d.rating} /></Field>
-                  <Field label="Responsable (cuenta tienda)">
+                  <Field label="Dueño de la tienda">
                     <select onChange={(e) => set({ ownerId: e.target.value || undefined })} value={d.ownerId ?? ''}>
                       <option value="">Sin asignar</option>
                       {storeUsers.map((user) => (
@@ -971,7 +971,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
                     <span>Tienda abierta y visible para pedidos</span>
                   </label>
                   {!storeUsers.length ? (
-                    <p className="adm-hint wide">Para asignar un responsable, primero crea un usuario con rol Tienda en la seccion Usuarios.</p>
+                    <p className="adm-hint wide">Para asignar un dueño, primero crea un usuario con rol Dueño en la seccion Usuarios.</p>
                   ) : null}
                 </>
               );
