@@ -8684,3 +8684,4 @@ button.adm-bar-row:hover span { color: var(--blue); }
 .initial-avatar.avatar-circle { font-size: 1.1rem; }
 .initial-avatar.adm-avatar { font-size: 0.95rem; }
 .hero-location-menu small.location-add { color: var(--blue); font-weight: 850; }
+.adm-drawer.wide { max-width: 640px; }

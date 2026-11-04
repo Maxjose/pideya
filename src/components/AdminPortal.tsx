@@ -38,7 +38,7 @@ interface AdminPortalProps {
   onLogout: () => void;
 }
 
-type Section = 'overview' | 'orders' | 'stores' | 'products' | 'users' | 'deliveries';
+type Section = 'overview' | 'orders' | 'stores' | 'users' | 'deliveries';
 
 const roleLabels: Record<Role, string> = {
   client: 'Cliente',
@@ -73,19 +73,6 @@ const emptyStore: api.StoreInput = {
   tags: [],
   ownerId: undefined,
 };
-
-type ProductInput = Omit<Product, 'id'>;
-const emptyProduct = (storeId: string): ProductInput => ({
-  storeId,
-  name: '',
-  description: '',
-  price: 0,
-  category: '',
-  imageUrl: '',
-  available: true,
-  stock: 10,
-  options: [],
-});
 
 interface UserForm {
   id?: string;
@@ -182,7 +169,8 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
 
   // formularios
   const [storeForm, setStoreForm] = useState<{ id?: string; data: api.StoreInput } | null>(null);
-  const [productForm, setProductForm] = useState<{ id?: string; data: ProductInput } | null>(null);
+  const [productsStoreId, setProductsStoreId] = useState<string | null>(null);
+  const [productQuery, setProductQuery] = useState('');
   const [userForm, setUserForm] = useState<UserForm | null>(null);
   const [deliveryForm, setDeliveryForm] = useState<{ id: string; vehicle: string; rating: number } | null>(null);
   const [orderDetailId, setOrderDetailId] = useState<string | null>(null);
@@ -269,9 +257,6 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
     return matches(order.id, order.customerName, order.customerPhone, order.address, storeById.get(order.storeId)?.name);
   });
   const filteredStores = storeStats.filter(({ store }) => matches(store.name, store.type, store.address, store.zone));
-  const filteredProducts = products.filter(
-    (product) => (storeFilter === 'all' || product.storeId === storeFilter) && matches(product.name, product.category, product.description),
-  );
   const filteredUsers = users
     .filter((user) => (roleFilter === 'all' || user.role === roleFilter) && matches(user.name, user.email, user.phone))
     .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
@@ -289,17 +274,6 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
     }
     const ok = await run(() => (id ? api.saveStore(id, data) : api.createStore(data)), id ? 'Tienda actualizada.' : 'Tienda creada.');
     if (ok) setStoreForm(null);
-  };
-
-  const submitProduct = async () => {
-    if (!productForm) return;
-    const { id, data } = productForm;
-    if (!data.name.trim() || !data.storeId) {
-      notify('error', 'Nombre y tienda son obligatorios.');
-      return;
-    }
-    const ok = await run(() => (id ? api.saveProduct(id, data) : api.insertProduct(data)), id ? 'Producto actualizado.' : 'Producto creado.');
-    if (ok) setProductForm(null);
   };
 
   const submitUser = async () => {
@@ -384,7 +358,6 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
     { id: 'overview', label: 'Resumen', icon: LayoutDashboard },
     { id: 'orders', label: 'Pedidos', icon: ClipboardList, badge: metrics.active },
     { id: 'stores', label: 'Tiendas', icon: Store },
-    { id: 'products', label: 'Productos', icon: Package },
     { id: 'users', label: 'Usuarios', icon: UsersRound },
     { id: 'deliveries', label: 'Repartidores', icon: Bike },
   ];
@@ -398,19 +371,6 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
       action: (
         <ActionButton icon={Plus} onClick={() => setStoreForm({ data: { ...emptyStore } })} variant="primary">
           Nueva tienda
-        </ActionButton>
-      ),
-    },
-    products: {
-      title: 'Productos',
-      subtitle: `${filteredProducts.length} de ${products.length} productos`,
-      action: (
-        <ActionButton
-          icon={Plus}
-          onClick={() => setProductForm({ data: emptyProduct(storeFilter !== 'all' ? storeFilter : stores[0]?.id ?? '') })}
-          variant="primary"
-        >
-          Nuevo producto
         </ActionButton>
       ),
     },
@@ -603,7 +563,7 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
                       />
                     </td>
                     <td className="adm-actions">
-                      <button className="adm-icon-button" onClick={() => { setStoreFilter(store.id); goTo('products'); }} title="Ver productos" type="button">
+                      <button className="adm-icon-button" onClick={() => { setProductsStoreId(store.id); setProductQuery(''); }} title="Ver productos" type="button">
                         <Package size={16} aria-hidden="true" />
                       </button>
                       <button className="adm-icon-button" onClick={() => setStoreForm({ id: store.id, data: { ...store } })} title="Editar" type="button">
@@ -630,80 +590,6 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
           </div>
         ) : (
           <EmptyState title="Sin tiendas" body="Crea la primera tienda con el boton Nueva tienda." />
-        )}
-      </section>
-    </>
-  );
-
-  const renderProducts = () => (
-    <>
-      <div className="adm-toolbar">
-        {searchBox('Buscar producto o categoria')}
-        {storeSelect(storeFilter, setStoreFilter, 'Todas las tiendas')}
-      </div>
-      <section className="adm-card flush">
-        {filteredProducts.length ? (
-          <div className="adm-table-wrap">
-            <table className="adm-table">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Tienda</th>
-                  <th>Categoria</th>
-                  <th className="num">Precio</th>
-                  <th className="num">Stock</th>
-                  <th>Disponible</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.map((product) => (
-                  <tr key={product.id}>
-                    <td>
-                      <div className="adm-entity">
-                        <SafeImage src={product.imageUrl} alt="" />
-                        <div>
-                          <strong>{product.name}</strong>
-                          <small>{product.description}</small>
-                        </div>
-                      </div>
-                    </td>
-                    <td>{storeById.get(product.storeId)?.name ?? '—'}</td>
-                    <td>{product.category}</td>
-                    <td className="num">{formatCurrency(product.price)}</td>
-                    <td className="num">{product.stock}</td>
-                    <td>
-                      <Toggle
-                        checked={product.available}
-                        label={`Disponibilidad de ${product.name}`}
-                        onChange={() => void run(() => api.setProductAvailable(product.id, !product.available), 'Producto actualizado.')}
-                      />
-                    </td>
-                    <td className="adm-actions">
-                      <button className="adm-icon-button" onClick={() => setProductForm({ id: product.id, data: { ...product } })} title="Editar" type="button">
-                        <Pencil size={16} aria-hidden="true" />
-                      </button>
-                      <button
-                        className="adm-icon-button danger"
-                        onClick={() =>
-                          setConfirm({
-                            text: `¿Eliminar el producto ${product.name}?`,
-                            action: async () => { await run(() => api.deleteProduct(product.id), 'Producto eliminado.'); },
-                          })
-                        }
-                        title="Eliminar"
-                        type="button"
-                      >
-                        <Trash2 size={16} aria-hidden="true" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <EmptyState title="Sin productos" body="No hay productos que coincidan con los filtros." />
         )}
       </section>
     </>
@@ -945,7 +831,6 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
           {section === 'overview' ? renderOverview() : null}
           {section === 'orders' ? renderOrders() : null}
           {section === 'stores' ? renderStores() : null}
-          {section === 'products' ? renderProducts() : null}
           {section === 'users' ? renderUsers() : null}
           {section === 'deliveries' ? renderDeliveries() : null}
         </div>
@@ -1095,48 +980,106 @@ export function AdminPortal({ currentUser, stores, products, orders, users, deli
         </Modal>
       ) : null}
 
-      {/* Formulario producto */}
-      {productForm ? (
-        <Modal
-          footer={
-            <>
-              <ActionButton onClick={() => setProductForm(null)} variant="ghost">Cancelar</ActionButton>
-              <ActionButton disabled={busy} icon={CheckCircle2} onClick={() => void submitProduct()} variant="primary">Guardar</ActionButton>
-            </>
-          }
-          onClose={() => setProductForm(null)}
-          title={productForm.id ? 'Editar producto' : 'Nuevo producto'}
-        >
-          <div className="adm-form-grid">
-            {(() => {
-              const d = productForm.data;
-              const set = (patch: Partial<ProductInput>) => setProductForm({ ...productForm, data: { ...d, ...patch } });
-              return (
-                <>
-                  <Field label="Nombre"><input onChange={(e) => set({ name: e.target.value })} value={d.name} /></Field>
-                  <Field label="Tienda">{storeSelect(d.storeId, (storeId) => set({ storeId }))}</Field>
-                  <Field label="Descripcion" wide><textarea onChange={(e) => set({ description: e.target.value })} rows={2} value={d.description} /></Field>
-                  <Field label="Categoria"><input onChange={(e) => set({ category: e.target.value })} value={d.category} /></Field>
-                  <Field label="Precio ($)"><input min={0} onChange={(e) => set({ price: Number(e.target.value) })} step="0.1" type="number" value={d.price} /></Field>
-                  <Field label="Stock"><input min={0} onChange={(e) => set({ stock: Number(e.target.value) })} type="number" value={d.stock} /></Field>
-                  <Field label="Imagen (URL)"><input onChange={(e) => set({ imageUrl: e.target.value })} placeholder="https://..." value={d.imageUrl} /></Field>
-                  <Field label="Opciones (separadas por coma)" wide>
-                    <input
-                      defaultValue={d.options.join(', ')}
-                      onChange={(e) => set({ options: e.target.value.split(',').map((option) => option.trim()).filter(Boolean) })}
-                      placeholder="Extra queso, Sin salsa"
-                    />
-                  </Field>
-                  <label className="adm-check wide">
-                    <input checked={d.available} onChange={(e) => set({ available: e.target.checked })} type="checkbox" />
-                    <span>Disponible para la venta</span>
-                  </label>
-                </>
-              );
-            })()}
+      {/* Productos de una tienda (consulta y moderación) */}
+      {productsStoreId ? (() => {
+        const store = storeById.get(productsStoreId);
+        const pq = productQuery.trim().toLowerCase();
+        const list = products.filter(
+          (product) =>
+            product.storeId === productsStoreId &&
+            (!pq || product.name.toLowerCase().includes(pq) || product.category.toLowerCase().includes(pq)),
+        );
+        const total = products.filter((product) => product.storeId === productsStoreId);
+        return (
+          <div className="adm-drawer-backdrop" role="presentation" onClick={() => setProductsStoreId(null)}>
+            <aside className="adm-drawer wide" role="dialog" aria-label={`Productos de ${store?.name}`} onClick={(event) => event.stopPropagation()}>
+              <header>
+                <div>
+                  <h2>Productos de {store?.name}</h2>
+                  <small>
+                    {total.length} productos · {total.filter((product) => !product.available).length} ocultos
+                  </small>
+                </div>
+                <button aria-label="Cerrar" className="adm-icon-button" onClick={() => setProductsStoreId(null)} type="button">
+                  <X size={18} aria-hidden="true" />
+                </button>
+              </header>
+              <div className="adm-drawer-body">
+                <p className="adm-hint">
+                  Cada tienda administra su menu desde su propio panel. Aqui puedes consultarlo y ocultar o eliminar productos que no cumplan las normas.
+                </p>
+                <label className="adm-search">
+                  <Search size={17} aria-hidden="true" />
+                  <input onChange={(event) => setProductQuery(event.target.value)} placeholder="Buscar producto o categoria" value={productQuery} />
+                </label>
+                {list.length ? (
+                  <div className="adm-card flush">
+                    <div className="adm-table-wrap">
+                      <table className="adm-table">
+                        <thead>
+                          <tr>
+                            <th>Producto</th>
+                            <th className="num">Precio</th>
+                            <th className="num">Stock</th>
+                            <th>Visible</th>
+                            <th />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {list.map((product) => (
+                            <tr className={product.available ? '' : 'inactive'} key={product.id}>
+                              <td>
+                                <div className="adm-entity">
+                                  <SafeImage src={product.imageUrl} alt="" />
+                                  <div>
+                                    <strong>{product.name}</strong>
+                                    <small>{product.category}</small>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="num">{formatCurrency(product.price)}</td>
+                              <td className="num">{product.stock}</td>
+                              <td className="adm-actions">
+                                <Toggle
+                                  checked={product.available}
+                                  label={`Mostrar u ocultar ${product.name}`}
+                                  onChange={() =>
+                                    void run(
+                                      () => api.setProductAvailable(product.id, !product.available),
+                                      product.available ? 'Producto oculto.' : 'Producto visible.',
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td className="adm-actions">
+                                <button
+                                  className="adm-icon-button danger"
+                                  onClick={() =>
+                                    setConfirm({
+                                      text: `¿Eliminar el producto ${product.name}?`,
+                                      action: async () => { await run(() => api.deleteProduct(product.id), 'Producto eliminado.'); },
+                                    })
+                                  }
+                                  title="Eliminar"
+                                  type="button"
+                                >
+                                  <Trash2 size={16} aria-hidden="true" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <EmptyState title="Sin productos" body="Esta tienda aun no tiene productos que coincidan." />
+                )}
+              </div>
+            </aside>
           </div>
-        </Modal>
-      ) : null}
+        );
+      })() : null}
 
       {/* Formulario usuario */}
       {userForm ? (
