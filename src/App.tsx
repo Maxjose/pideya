@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bike, Download, LayoutDashboard, LogIn, LogOut, Share2, Store, UserPlus, X } from 'lucide-react';
 import './App.css';
 import pideyaLogo from './assets/pideya-logo.png';
@@ -46,6 +46,7 @@ function App() {
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [serviceSettings, setServiceSettings] = useState<ServiceSettings>(api.defaultServiceSettings);
   const [actionError, setActionError] = useState<string | null>(null);
+  const signedInUserId = useRef<string | null>(null);
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashClosing, setSplashClosing] = useState(false);
   const [entryScreenVisible, setEntryScreenVisible] = useState(true);
@@ -161,15 +162,20 @@ function App() {
         setCurrentUser(null);
         return;
       }
+      // Supabase vuelve a emitir SIGNED_IN al regresar a la pestaña: si es el mismo usuario no se repite la animación de entrada
+      if (signedInUserId.current === userId) return;
       const profile = await api.fetchProfile(userId).catch(() => null);
-      if (profile) {
+      if (profile && signedInUserId.current !== userId) {
         handleAuthComplete(profile);
       }
     };
 
     void supabase.auth.getSession().then(({ data }) => syncSession(data.session?.user.id));
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') setCurrentUser(null);
+      if (event === 'SIGNED_OUT') {
+        signedInUserId.current = null;
+        setCurrentUser(null);
+      }
       if (event === 'SIGNED_IN' && session?.user.id) {
         window.setTimeout(() => void syncSession(session.user.id), 0);
       }
@@ -210,6 +216,11 @@ function App() {
   }, [currentUser?.id]);
 
   const handleAuthComplete = (user: AppUser) => {
+    if (signedInUserId.current === user.id) {
+      setCurrentUser(user);
+      return;
+    }
+    signedInUserId.current = user.id;
     setCurrentUser(user);
     setActiveRole(user.role);
     setAuthMode(null);
@@ -224,6 +235,7 @@ function App() {
   };
 
   const logout = () => {
+    signedInUserId.current = null;
     void supabase.auth.signOut();
     setCurrentUser(null);
     setCart([]);
