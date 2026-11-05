@@ -8856,3 +8856,9 @@ button.adm-bar-row:hover span { color: var(--blue); }
 .staff-perm-options strong { display: block; font-size: 0.9rem; }
 .staff-perm-options small { color: var(--muted); font-size: 0.78rem; }
 @media (max-width: 640px) { .staff-perm-options, .staff-list { grid-template-columns: 1fr; } }
+.staff-perm-options input[type='checkbox'],
+.adm-field .staff-perm-options input[type='checkbox'] {
+  accent-color: var(--blue); background: none; border: 0; border-radius: 4px; flex-shrink: 0; height: 18px;
+  min-height: 0; outline: none; padding: 0; width: 18px;
+}
+.staff-perm-options input[type='checkbox']:focus-visible { outline: 2px solid rgba(18, 104, 243, 0.35); outline-offset: 2px; }

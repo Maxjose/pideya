@@ -204,11 +204,11 @@ export function StorePortal({
 
   const menuOptions = [
     { label: 'Ubicacion de la tienda', detail: store.address, icon: MapPin, view: 'location' as const },
+    { label: 'Empleados', detail: 'Tu equipo y sus funciones', icon: UsersRound, view: 'staff' as const },
     { label: 'Métodos de pago', detail: 'Pago móvil, Binance y efectivo', icon: CreditCard, view: 'paymentData' as const },
     { label: 'Horario y disponibilidad', detail: store.schedule, icon: Clock, view: 'schedule' as const },
     { label: 'Promociones', detail: 'Cupones, descuentos y combos', icon: Tags, view: 'promotions' as const },
     { label: 'Ajustes de tienda', detail: 'Perfil, permisos y notificaciones', icon: Settings, view: 'settings' as const },
-    { label: 'Empleados', detail: 'Tu equipo y sus funciones', icon: UsersRound, view: 'staff' as const },
   ].filter((option) => canView(option.view));
 
   const submitProduct = () => {
@@ -256,12 +256,12 @@ export function StorePortal({
     { view: 'payments', label: 'Pagos', icon: WalletCards },
   ] satisfies Array<{ view: StoreView; label: string; icon: typeof Store; badge?: number }>).filter((item) => canView(item.view));
   const deskConfig: Array<{ view: StoreView; label: string; icon: typeof Store }> = ([
+    { view: 'staff', label: 'Empleados', icon: UsersRound },
     { view: 'paymentData', label: 'Métodos de pago', icon: CreditCard },
     { view: 'location', label: 'Ubicación', icon: MapPin },
     { view: 'schedule', label: 'Horario', icon: Clock },
     { view: 'promotions', label: 'Promociones', icon: Tags },
     { view: 'settings', label: 'Ajustes', icon: Settings },
-    { view: 'staff', label: 'Empleados', icon: UsersRound },
   ] satisfies Array<{ view: StoreView; label: string; icon: typeof Store }>).filter((item) => canView(item.view));
   const deskTitles: Record<StoreView, { title: string; subtitle: string }> = {
     dashboard: { title: 'Inicio', subtitle: 'Resumen de la operación de tu tienda.' },
