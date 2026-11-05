@@ -253,6 +253,7 @@ export function StorePortal({
     settings: { title: 'Ajustes de tienda', subtitle: 'Perfil, permisos y notificaciones.' },
   };
   const deskHeader = deskTitles[activeView];
+  const [openConfirm, setOpenConfirm] = useState(false);
   const [deskQuery, setDeskQuery] = useState('');
   const [deskStatus, setDeskStatus] = useState<'active' | 'all' | DeskOrderStatus>('active');
   const [deskOrderId, setDeskOrderId] = useState<string | null>(null);
@@ -630,7 +631,7 @@ export function StorePortal({
         ) : null}
         <button
           className={`store-desk-open ${store.open ? 'open' : ''}`}
-          onClick={() => onToggleStoreOpen(store.id)}
+          onClick={() => setOpenConfirm(true)}
           title={store.open ? 'Cerrar tienda' : 'Abrir tienda'}
           type="button"
         >
@@ -815,7 +816,7 @@ export function StorePortal({
               <Phone size={15} aria-hidden="true" /> {store.phone}
             </span>
             <span>{store.schedule}</span>
-            <ActionButton icon={Power} onClick={() => onToggleStoreOpen(store.id)} variant={store.open ? 'danger' : 'success'}>
+            <ActionButton icon={Power} onClick={() => setOpenConfirm(true)} variant={store.open ? 'danger' : 'success'}>
               {store.open ? 'Cerrar tienda' : 'Abrir tienda'}
             </ActionButton>
           </div>
@@ -890,7 +891,7 @@ export function StorePortal({
           <div className="store-info">
             <strong>{store.schedule}</strong>
             <span>Estado visible para clientes y delivery.</span>
-            <ActionButton icon={Power} onClick={() => onToggleStoreOpen(store.id)} variant={store.open ? 'danger' : 'success'}>
+            <ActionButton icon={Power} onClick={() => setOpenConfirm(true)} variant={store.open ? 'danger' : 'success'}>
               {store.open ? 'Cerrar tienda' : 'Abrir tienda'}
             </ActionButton>
           </div>
@@ -1238,6 +1239,43 @@ export function StorePortal({
             {orderActions(deskOrderDetail)}
           </div>
         </aside>
+      </div>
+    ) : null}
+    {openConfirm ? (
+      <div className="modal-backdrop store-open-confirm-backdrop" role="presentation" onClick={() => setOpenConfirm(false)}>
+        <section
+          aria-labelledby="store-open-confirm-title"
+          className="delivery-service-confirm"
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+        >
+          <div className={`delivery-service-confirm-icon ${store.open ? 'danger' : ''}`.trim()}>
+            <Power size={26} aria-hidden="true" />
+          </div>
+          <div>
+            <h2 id="store-open-confirm-title">{store.open ? '¿Cerrar la tienda?' : '¿Abrir la tienda?'}</h2>
+            <p>
+              {store.open
+                ? `${store.name} dejará de recibir pedidos nuevos y aparecerá como cerrada para los clientes.`
+                : `${store.name} aparecerá como abierta y empezará a recibir pedidos nuevos.`}
+            </p>
+          </div>
+          <div className="delivery-service-confirm-actions">
+            <ActionButton icon={ArrowLeft} onClick={() => setOpenConfirm(false)} variant="ghost">
+              Cancelar
+            </ActionButton>
+            <ActionButton
+              icon={Power}
+              onClick={() => {
+                onToggleStoreOpen(store.id);
+                setOpenConfirm(false);
+              }}
+              variant={store.open ? 'danger' : 'success'}
+            >
+              {store.open ? 'Sí, cerrar' : 'Sí, abrir'}
+            </ActionButton>
+          </div>
+        </section>
       </div>
     ) : null}
     </div>
