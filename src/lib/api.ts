@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { StorePaymentMethod, PaymentMethodType, ServiceSettings, AppUser, DeliveryAgent, Order, OrderStatus, PaymentMethod, Product, Role, Storefront } from '../types';
+import type { StaffPermission, StoreStaffMember, StorePaymentMethod, PaymentMethodType, ServiceSettings, AppUser, DeliveryAgent, Order, OrderStatus, PaymentMethod, Product, Role, Storefront } from '../types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = Record<string, any>;
@@ -216,7 +216,7 @@ export async function setProductAvailable(productId: string, available: boolean)
 }
 
 export async function setStoreOpen(storeId: string, open: boolean) {
-  const { error } = await supabase.from('stores').update({ open }).eq('id', storeId);
+  const { error } = await supabase.rpc('set_store_open', { p_store_id: storeId, p_open: open });
   fail(error);
 }
 
@@ -401,4 +401,43 @@ export async function saveStorePaymentMethod(method: StorePaymentMethod) {
 export async function deleteStorePaymentMethod(storeId: string, type: PaymentMethodType) {
   const { error } = await supabase.from('store_payment_methods').delete().eq('store_id', storeId).eq('type', type);
   fail(error);
+}
+
+/* ===== Empleados de tienda ===== */
+const mapStaff = (r: Row): StoreStaffMember => ({
+  storeId: r.store_id,
+  userId: r.user_id,
+  name: r.name,
+  email: r.email,
+  permissions: (r.permissions ?? []) as StaffPermission[],
+  active: r.active,
+  createdAt: r.created_at,
+});
+
+export async function fetchMyStaffMemberships(userId: string) {
+  const { data, error } = await supabase.from('store_staff').select('*').eq('user_id', userId).eq('active', true);
+  fail(error);
+  return (data ?? []).map(mapStaff);
+}
+
+export async function fetchStoreStaff(storeId: string) {
+  const { data, error } = await supabase.from('store_staff').select('*').eq('store_id', storeId).order('created_at');
+  fail(error);
+  return (data ?? []).map(mapStaff);
+}
+
+export async function storeStaffAction(body: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('store-staff', { body });
+  if (error) {
+    let message = error.message;
+    try {
+      const ctx = (error as { context?: Response }).context;
+      if (ctx) message = (await ctx.json()).error ?? message;
+    } catch {
+      /* sin JSON */
+    }
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
 }

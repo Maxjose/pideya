@@ -8831,3 +8831,28 @@ button.adm-bar-row:hover span { color: var(--blue); }
 }
 .store-open-confirm-backdrop { background: rgba(11, 27, 58, 0.45); inset: 0; position: fixed; z-index: 70; }
 .delivery-service-confirm-icon.danger { background: var(--coral-soft); color: var(--coral); }
+
+/* Empleados de tienda */
+.staff-manager { display: grid; gap: 14px; }
+.staff-head { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
+.staff-head p { color: var(--muted); flex: 1; margin: 0; min-width: 220px; }
+.staff-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.staff-card { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; display: flex; gap: 12px; padding: 14px; }
+.staff-card.inactive { opacity: 0.6; }
+.staff-avatar { height: 42px; width: 42px; font-size: 1rem; }
+.staff-info { flex: 1; min-width: 0; }
+.staff-info strong { display: block; }
+.staff-info small { color: var(--muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.staff-perms { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.staff-perms span { background: var(--surface-soft); border-radius: 999px; color: var(--blue); font-size: 0.72rem; font-weight: 850; padding: 3px 8px; }
+.staff-perms span.off { background: #eef1f5; color: var(--muted); }
+.staff-actions { display: flex; flex-shrink: 0; }
+.staff-perm-options { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.staff-perm-options label {
+  align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; display: flex; gap: 10px; padding: 10px 12px;
+}
+.staff-perm-options label.on { background: var(--surface-soft); border-color: rgba(18, 104, 243, 0.4); }
+.staff-perm-options input { height: 18px; margin-top: 2px; width: 18px; }
+.staff-perm-options strong { display: block; font-size: 0.9rem; }
+.staff-perm-options small { color: var(--muted); font-size: 0.78rem; }
+@media (max-width: 640px) { .staff-perm-options, .staff-list { grid-template-columns: 1fr; } }

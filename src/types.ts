@@ -1,4 +1,16 @@
-export type Role = 'client' | 'store' | 'delivery' | 'admin';
+export type Role = 'client' | 'store' | 'delivery' | 'admin' | 'staff';
+
+export type StaffPermission = 'orders' | 'inventory' | 'payments' | 'settings';
+
+export interface StoreStaffMember {
+  storeId: string;
+  userId: string;
+  name: string;
+  email: string;
+  permissions: StaffPermission[];
+  active: boolean;
+  createdAt?: string;
+}
 
 export type OrderStatus =
   | 'pending'

@@ -53,6 +53,7 @@ export function AuthModal({ mode, onClose, onComplete }: AuthModalProps) {
       delivery: 'Mario Campos',
       store: storeName || 'Carla Medina',
       admin: 'Jose Admin',
+      staff: 'Empleado',
     };
 
     onComplete({

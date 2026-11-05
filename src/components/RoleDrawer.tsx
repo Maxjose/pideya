@@ -64,7 +64,7 @@ export function RoleDrawer({
     return null;
   }
 
-  const menuItems = roleMenus[activeRole];
+  const menuItems = roleMenus[activeRole === 'staff' ? 'store' : activeRole];
 
   return (
     <div className="drawer-backdrop" role="presentation" onClick={onClose}>

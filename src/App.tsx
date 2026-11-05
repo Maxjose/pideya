@@ -10,7 +10,7 @@ import { RoleDrawer } from './components/RoleDrawer';
 import { StorePortal } from './components/StorePortal';
 import * as api from './lib/api';
 import { supabase } from './lib/supabase';
-import type { ServiceSettings, AppUser, CartItem, DeliveryAgent, Order, OrderStatus, PaymentMethod, Product, Role, Storefront } from './types';
+import type { StaffPermission, StoreStaffMember, ServiceSettings, AppUser, CartItem, DeliveryAgent, Order, OrderStatus, PaymentMethod, Product, Role, Storefront } from './types';
 
 type AuthMode = 'login' | 'register';
 type BeforeInstallPromptOutcome = 'accepted' | 'dismissed';
@@ -47,6 +47,7 @@ function App() {
   const [serviceSettings, setServiceSettings] = useState<ServiceSettings>(api.defaultServiceSettings);
   const [actionError, setActionError] = useState<string | null>(null);
   const signedInUserId = useRef<string | null>(null);
+  const [staffMemberships, setStaffMemberships] = useState<StoreStaffMember[]>([]);
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashClosing, setSplashClosing] = useState(false);
   const [entryScreenVisible, setEntryScreenVisible] = useState(true);
@@ -108,9 +109,14 @@ function App() {
     () =>
       currentUser?.role === 'admin'
         ? stores
-        : stores.filter((store) => currentUser && store.ownerId === currentUser.id),
-    [currentUser, stores],
+        : currentUser?.role === 'staff'
+          ? stores.filter((store) => staffMemberships.some((member) => member.storeId === store.id))
+          : stores.filter((store) => currentUser && store.ownerId === currentUser.id),
+    [currentUser, staffMemberships, stores],
   );
+  const activeStoreId = managedStoreId || ownedStores[0]?.id || '';
+  const storePermissions: StaffPermission[] | undefined =
+    currentUser?.role === 'staff' ? staffMemberships.find((member) => member.storeId === activeStoreId)?.permissions ?? [] : undefined;
 
   const reportError = (error: unknown) => {
     const message = error instanceof Error ? error.message : 'Ocurrio un error. Intenta de nuevo.';
@@ -144,6 +150,9 @@ function App() {
         api.fetchDeliveryRows(),
         user.role === 'admin' ? api.fetchProfiles() : Promise.resolve([]),
       ]);
+      if (user.role === 'staff') {
+        setStaffMemberships(await api.fetchMyStaffMemberships(user.id));
+      }
       setOrders(nextOrders);
       setDeliveryRows(nextDeliveryRows);
       setProfiles(nextProfiles);
@@ -222,7 +231,7 @@ function App() {
     }
     signedInUserId.current = user.id;
     setCurrentUser(user);
-    setActiveRole(user.role);
+    setActiveRole(user.role === 'staff' ? 'store' : user.role);
     setAuthMode(null);
     setDrawerOpen(false);
     setEntryScreenVisible(false);
@@ -521,7 +530,7 @@ function App() {
         />
       ) : null}
 
-      {activeRole === 'store' && !ownedStores.length ? (
+      {activeRole === 'store' && !ownedStores.length && catalogLoaded ? (
         <section className="app-notice-screen">
           <h2>Tu cuenta aun no tiene una tienda asignada</h2>
           <p>Contacta a administracion para vincular tu comercio a esta cuenta.</p>
@@ -534,7 +543,8 @@ function App() {
 
       {activeRole === 'store' && ownedStores.length ? (
         <StorePortal
-          managedStoreId={managedStoreId || ownedStores[0].id}
+          managedStoreId={activeStoreId}
+          permissions={storePermissions}
           onAddProduct={addProduct}
           onManagedStoreChange={setManagedStoreId}
           onOrderStatusChange={changeOrderStatus}

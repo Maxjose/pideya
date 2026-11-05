@@ -18,6 +18,7 @@ import {
   Settings,
   Store,
   Tags,
+  UsersRound,
   WalletCards,
   XCircle,
 } from 'lucide-react';
@@ -26,6 +27,8 @@ import { ActionButton, EmptyState, MetricCard, Panel, SafeImage, StatusPill } fr
 import type { OrderStatus as DeskOrderStatus } from '../types';
 import { statusLabels } from '../utils/format';
 import { PaymentMethodsEditor } from './PaymentMethodsEditor';
+import { StaffManager } from './StaffManager';
+import type { StaffPermission } from '../types';
 import type { Order, OrderStatus, Product, Storefront } from '../types';
 import { formatCurrency, formatTime } from '../utils/format';
 
@@ -40,6 +43,8 @@ interface StorePortalProps {
   onUpdateProduct: (productId: string, product: Omit<Product, 'id'>) => void;
   onToggleStoreOpen: (storeId: string) => void;
   onLogout: () => void;
+  /** Permisos del empleado; sin definir = dueño o admin con acceso total */
+  permissions?: StaffPermission[];
 }
 
 const productImageFallback =
@@ -54,7 +59,8 @@ type StoreView =
   | 'paymentData'
   | 'schedule'
   | 'promotions'
-  | 'settings';
+  | 'settings'
+  | 'staff';
 
 const storeMainViews: StoreView[] = ['dashboard', 'orders', 'inventory', 'payments'];
 
@@ -69,6 +75,7 @@ export function StorePortal({
   onUpdateProduct,
   onToggleStoreOpen,
   onLogout,
+  permissions,
 }: StorePortalProps) {
   const [draftName, setDraftName] = useState('');
   const [draftDescription, setDraftDescription] = useState('');
@@ -113,6 +120,19 @@ export function StorePortal({
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   const store = stores.find((item) => item.id === managedStoreId) ?? stores[0];
+  const isOwner = permissions === undefined;
+  const can = (permission: StaffPermission) => isOwner || permissions.includes(permission);
+  const viewPermission: Partial<Record<StoreView, StaffPermission>> = {
+    orders: 'orders',
+    inventory: 'inventory',
+    payments: 'payments',
+    paymentData: 'settings',
+    location: 'settings',
+    schedule: 'settings',
+    promotions: 'settings',
+    settings: 'settings',
+  };
+  const canView = (view: StoreView) => (view === 'staff' ? isOwner : !viewPermission[view] || can(viewPermission[view]!));
   const storeProducts = products.filter((product) => product.storeId === store.id);
   const storeOrders = orders.filter((order) => order.storeId === store.id);
 
@@ -188,7 +208,8 @@ export function StorePortal({
     { label: 'Horario y disponibilidad', detail: store.schedule, icon: Clock, view: 'schedule' as const },
     { label: 'Promociones', detail: 'Cupones, descuentos y combos', icon: Tags, view: 'promotions' as const },
     { label: 'Ajustes de tienda', detail: 'Perfil, permisos y notificaciones', icon: Settings, view: 'settings' as const },
-  ];
+    { label: 'Empleados', detail: 'Tu equipo y sus funciones', icon: UsersRound, view: 'staff' as const },
+  ].filter((option) => canView(option.view));
 
   const submitProduct = () => {
     const price = Number(draftPrice);
@@ -228,19 +249,20 @@ export function StorePortal({
     setProductSheetOpen(false);
   };
 
-  const deskNav: Array<{ view: StoreView; label: string; icon: typeof Store; badge?: number }> = [
+  const deskNav: Array<{ view: StoreView; label: string; icon: typeof Store; badge?: number }> = ([
     { view: 'dashboard', label: 'Inicio', icon: Store },
     { view: 'orders', label: 'Pedidos', icon: ClipboardList, badge: dashboard.newOrders },
     { view: 'inventory', label: 'Inventario', icon: PackageCheck },
     { view: 'payments', label: 'Pagos', icon: WalletCards },
-  ];
-  const deskConfig: Array<{ view: StoreView; label: string; icon: typeof Store }> = [
+  ] satisfies Array<{ view: StoreView; label: string; icon: typeof Store; badge?: number }>).filter((item) => canView(item.view));
+  const deskConfig: Array<{ view: StoreView; label: string; icon: typeof Store }> = ([
     { view: 'paymentData', label: 'Métodos de pago', icon: CreditCard },
     { view: 'location', label: 'Ubicación', icon: MapPin },
     { view: 'schedule', label: 'Horario', icon: Clock },
     { view: 'promotions', label: 'Promociones', icon: Tags },
     { view: 'settings', label: 'Ajustes', icon: Settings },
-  ];
+    { view: 'staff', label: 'Empleados', icon: UsersRound },
+  ] satisfies Array<{ view: StoreView; label: string; icon: typeof Store }>).filter((item) => canView(item.view));
   const deskTitles: Record<StoreView, { title: string; subtitle: string }> = {
     dashboard: { title: 'Inicio', subtitle: 'Resumen de la operación de tu tienda.' },
     orders: { title: 'Pedidos', subtitle: `${storeOrders.length} pedidos · ${dashboard.newOrders} nuevos` },
@@ -251,6 +273,7 @@ export function StorePortal({
     schedule: { title: 'Horario y disponibilidad', subtitle: store.schedule },
     promotions: { title: 'Promociones', subtitle: 'Cupones, descuentos y combos.' },
     settings: { title: 'Ajustes de tienda', subtitle: 'Perfil, permisos y notificaciones.' },
+    staff: { title: 'Empleados', subtitle: 'Crea cuentas para tu equipo y delega funciones.' },
   };
   const deskHeader = deskTitles[activeView];
   const [openConfirm, setOpenConfirm] = useState(false);
@@ -362,8 +385,8 @@ export function StorePortal({
             {deskKpi('En preparacion', String(dashboard.preparing), 'Aceptados y en cocina', PackageCheck, 'amber')}
             {deskKpi('Listos', String(dashboard.ready), 'Esperando repartidor', CheckCircle2, 'green')}
             {deskKpi('Entregados', String(dashboard.completed), `${todayOrders.length} pedidos hoy`, ClipboardList, 'blue')}
-            {deskKpi('Ventas liquidadas', formatCurrency(deliveredOrders.reduce((t, o) => t + netForStore(o), 0)), 'Neto de pedidos entregados', WalletCards, 'green')}
-            {deskKpi('Por conciliar', formatCurrency(storeOrders.filter((o) => activeOrderStatuses.includes(o.status)).reduce((t, o) => t + netForStore(o), 0)), 'Pedidos en curso', CreditCard, 'amber')}
+            {can('payments') ? deskKpi('Ventas liquidadas', formatCurrency(deliveredOrders.reduce((t, o) => t + netForStore(o), 0)), 'Neto de pedidos entregados', WalletCards, 'green') : null}
+            {can('payments') ? deskKpi('Por conciliar', formatCurrency(storeOrders.filter((o) => activeOrderStatuses.includes(o.status)).reduce((t, o) => t + netForStore(o), 0)), 'Pedidos en curso', CreditCard, 'amber') : null}
             {deskKpi('Productos', String(storeProducts.length), `${storeProducts.filter((p) => !p.available).length} ocultos`, Tags, 'blue')}
             {deskKpi('Stock bajo', String(lowStockProducts), '5 unidades o menos', PackageCheck, lowStockProducts ? 'coral' : 'ink')}
           </div>
@@ -575,7 +598,7 @@ export function StorePortal({
             {badge ? <strong>{badge}</strong> : null}
           </button>
         ))}
-        <small className="store-desk-nav-label">Configuración</small>
+        {deskConfig.length ? <small className="store-desk-nav-label">Configuración</small> : null}
         {deskConfig.map(({ view, label, icon: Icon }) => (
           <button className={activeView === view ? 'active' : ''} key={view} onClick={() => navigateStoreSection(view)} type="button">
             <Icon size={19} aria-hidden="true" />
@@ -629,6 +652,7 @@ export function StorePortal({
             </ActionButton>
           </>
         ) : null}
+        {can('orders') ? (
         <button
           className={`store-desk-open ${store.open ? 'open' : ''}`}
           onClick={() => setOpenConfirm(true)}
@@ -638,6 +662,7 @@ export function StorePortal({
           <Power size={16} aria-hidden="true" />
           <span>{store.open ? 'Abierta' : 'Cerrada'}</span>
         </button>
+        ) : null}
       </div>
     </header>
 
@@ -816,7 +841,7 @@ export function StorePortal({
               <Phone size={15} aria-hidden="true" /> {store.phone}
             </span>
             <span>{store.schedule}</span>
-            <ActionButton icon={Power} onClick={() => setOpenConfirm(true)} variant={store.open ? 'danger' : 'success'}>
+            <ActionButton disabled={!can('orders')} icon={Power} onClick={() => setOpenConfirm(true)} variant={store.open ? 'danger' : 'success'}>
               {store.open ? 'Cerrar tienda' : 'Abrir tienda'}
             </ActionButton>
           </div>
@@ -891,7 +916,7 @@ export function StorePortal({
           <div className="store-info">
             <strong>{store.schedule}</strong>
             <span>Estado visible para clientes y delivery.</span>
-            <ActionButton icon={Power} onClick={() => setOpenConfirm(true)} variant={store.open ? 'danger' : 'success'}>
+            <ActionButton disabled={!can('orders')} icon={Power} onClick={() => setOpenConfirm(true)} variant={store.open ? 'danger' : 'success'}>
               {store.open ? 'Cerrar tienda' : 'Abrir tienda'}
             </ActionButton>
           </div>
@@ -914,6 +939,12 @@ export function StorePortal({
               Sin cupones nuevos
             </span>
           </div>
+        </Panel>
+      ) : null}
+
+      {activeView === 'staff' && isOwner ? (
+        <Panel className="store-command" title="Empleados">
+          <StaffManager storeId={store.id} />
         </Panel>
       ) : null}
 
@@ -942,6 +973,7 @@ export function StorePortal({
         <Store size={21} aria-hidden="true" />
         <span>Inicio</span>
       </button>
+      {canView('orders') ? (
       <button
         className={activeView === 'orders' ? 'active' : ''}
         onClick={() => navigateStoreSection('orders')}
@@ -951,6 +983,8 @@ export function StorePortal({
         <span>Pedidos</span>
         {dashboard.newOrders ? <strong>{dashboard.newOrders}</strong> : null}
       </button>
+      ) : null}
+      {canView('inventory') ? (
       <button
         className={activeView === 'inventory' ? 'active' : ''}
         onClick={() => navigateStoreSection('inventory')}
@@ -959,6 +993,8 @@ export function StorePortal({
         <PackageCheck size={21} aria-hidden="true" />
         <span>Inventario</span>
       </button>
+      ) : null}
+      {canView('payments') ? (
       <button
         className={activeView === 'payments' ? 'active' : ''}
         onClick={() => navigateStoreSection('payments')}
@@ -967,6 +1003,7 @@ export function StorePortal({
         <WalletCards size={21} aria-hidden="true" />
         <span>Pagos</span>
       </button>
+      ) : null}
       <button
         className={storeMenuOpen || !storeMainViews.includes(activeView) ? 'active' : ''}
         onClick={() => setStoreMenuOpen(true)}

@@ -49,6 +49,7 @@ const roleLabels: Record<Role, string> = {
   store: 'Dueño',
   delivery: 'Delivery',
   admin: 'Admin',
+  staff: 'Empleado',
 };
 
 const allStatuses = Object.keys(statusLabels) as OrderStatus[];
